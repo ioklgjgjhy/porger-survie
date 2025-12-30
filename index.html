@@ -3025,54 +3025,6 @@
     </div>
 
     <script>
-      // ===== SYSTÈME ANTI-TRICHE =====
-      (function() {
-        // Désactiver le clic droit
-        document.addEventListener('contextmenu', e => e.preventDefault());
-
-        // Désactiver certaines touches de dev
-        document.addEventListener('keydown', function(e) {
-          // F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U
-          if (e.key === 'F12' ||
-              (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j')) ||
-              (e.ctrlKey && (e.key === 'U' || e.key === 'u'))) {
-            e.preventDefault();
-            return false;
-          }
-        });
-
-        // Détecter DevTools ouvert (méthode du debugger)
-        let devToolsOpen = false;
-        const detectDevTools = function() {
-          const threshold = 160;
-          const widthThreshold = window.outerWidth - window.innerWidth > threshold;
-          const heightThreshold = window.outerHeight - window.innerHeight > threshold;
-
-          if (widthThreshold || heightThreshold) {
-            if (!devToolsOpen) {
-              devToolsOpen = true;
-              alert("⚠️ Outils de développement détectés!\n\nLa triche n'est pas autorisée.\nLe jeu va se réinitialiser.");
-              location.reload();
-            }
-          } else {
-            devToolsOpen = false;
-          }
-        };
-
-        setInterval(detectDevTools, 1000);
-
-        // Bloquer console
-        const blockConsole = function() {
-          const methods = ['log', 'debug', 'info', 'warn', 'error', 'table', 'trace'];
-          methods.forEach(method => {
-            window.console[method] = function() {
-              return undefined;
-            };
-          });
-        };
-        blockConsole();
-      })();
-
       // Elements DOM
       const gameContainer = document.getElementById("gameContainer");
       const gameCanvas = document.getElementById("gameCanvas");
@@ -6497,43 +6449,8 @@
         setTimeout(() => popup.remove(), 1000);
       }
 
-      // Variables de vérification anti-triche
-      let _lastMoney = 0;
-      let _lastKills = 0;
-      let _cheatDetected = false;
-
-      function checkIntegrity() {
-        if (_cheatDetected) return;
-
-        // Vérifier si l'argent a augmenté de façon suspecte (plus de 500 d'un coup sans kills)
-        const moneyDiff = playerMoney - _lastMoney;
-        const killsDiff = kills - _lastKills;
-
-        // Si l'argent augmente beaucoup sans tuer d'ennemis = triche probable
-        if (moneyDiff > 500 && killsDiff === 0 && gameActive) {
-          _cheatDetected = true;
-          alert("🚫 Triche détectée!\n\nModification suspecte de l'argent.\nLe jeu va se réinitialiser.");
-          location.reload();
-          return;
-        }
-
-        // Vérifier valeurs impossibles
-        if (playerHealth > maxHealth * 2 || playerMoney > 999999 || baseDamage > 10000) {
-          _cheatDetected = true;
-          alert("🚫 Triche détectée!\n\nValeurs impossibles détectées.\nLe jeu va se réinitialiser.");
-          location.reload();
-          return;
-        }
-
-        _lastMoney = playerMoney;
-        _lastKills = kills;
-      }
-
       function gameLoop() {
         if (!gameActive) return;
-
-        // Vérification anti-triche périodique
-        if (Math.random() < 0.02) checkIntegrity();
 
         if (!gamePaused) {
           // Vérifier les buffs zombies en attente
@@ -7030,5 +6947,7 @@
         }, 1000);
       }
     </script>
+
+    <a href="mailto:razerewmasnet@gmail.com" style="position: fixed; bottom: 10px; right: 10px; color: rgba(255,255,255,0.5); font-size: 12px; text-decoration: none; z-index: 9999;">Erwan</a>
   </body>
 </html>
