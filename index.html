@@ -1098,85 +1098,146 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        transform: perspective(80px) rotateX(15deg);
+        transform: perspective(100px) rotateX(20deg);
+        transform-style: preserve-3d;
       }
 
       .enemy.zombie {
-        background: linear-gradient(145deg, #3ddc84, #1e8449);
+        background: radial-gradient(ellipse at 30% 20%, #5dfc9e 0%, #3ddc84 30%, #1e8449 70%, #145a32 100%);
         border: 2px solid #2ecc71;
         box-shadow:
-          0 6px 0 #145a32,
-          0 8px 15px rgba(0, 0, 0, 0.4),
-          0 0 10px rgba(46, 204, 113, 0.5),
-          inset 0 -4px 10px rgba(0, 0, 0, 0.3),
-          inset 0 4px 8px rgba(255, 255, 255, 0.2);
+          0 8px 0 #0d3d1f,
+          0 10px 20px rgba(0, 0, 0, 0.5),
+          0 0 15px rgba(46, 204, 113, 0.6),
+          inset 0 -8px 15px rgba(0, 0, 0, 0.4),
+          inset 0 6px 10px rgba(255, 255, 255, 0.3),
+          inset 3px 0 8px rgba(255, 255, 255, 0.1);
+        animation: zombieBob 0.8s ease-in-out infinite;
+      }
+
+      @keyframes zombieBob {
+        0%, 100% { transform: perspective(100px) rotateX(20deg) translateY(0); }
+        50% { transform: perspective(100px) rotateX(20deg) translateY(-3px); }
       }
 
       .enemy.zombie::before {
         content: "";
-        width: 8px;
-        height: 8px;
-        background: #ff0000;
+        width: 10px;
+        height: 10px;
+        background: radial-gradient(circle at 30% 30%, #ff4444, #cc0000);
         border-radius: 50%;
         box-shadow:
-          12px 0 0 #ff0000,
-          6px 8px 0 3px #1a1a1a;
+          14px 0 0 #cc0000,
+          14px 0 0 2px rgba(255, 0, 0, 0.3),
+          0 0 0 2px rgba(255, 0, 0, 0.3),
+          7px 10px 0 4px #1a1a1a,
+          7px 12px 3px 4px rgba(0, 0, 0, 0.3);
+      }
+
+      .enemy.zombie::after {
+        content: "";
+        position: absolute;
+        top: -5px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 20px;
+        height: 8px;
+        background: linear-gradient(to bottom, rgba(255,255,255,0.4), transparent);
+        border-radius: 50%;
       }
 
       .enemy.fast-zombie {
-        background: linear-gradient(145deg, #ff6b6b, #c0392b);
+        background: radial-gradient(ellipse at 30% 20%, #ff8a8a 0%, #ff6b6b 30%, #c0392b 70%, #7b241c 100%);
         border: 2px solid #e74c3c;
         box-shadow:
-          0 6px 0 #7b241c,
-          0 8px 15px rgba(0, 0, 0, 0.4),
-          0 0 10px rgba(231, 76, 60, 0.5),
-          inset 0 -4px 10px rgba(0, 0, 0, 0.3),
-          inset 0 4px 8px rgba(255, 255, 255, 0.2);
+          0 8px 0 #5a1a10,
+          0 10px 20px rgba(0, 0, 0, 0.5),
+          0 0 20px rgba(231, 76, 60, 0.7),
+          inset 0 -8px 15px rgba(0, 0, 0, 0.4),
+          inset 0 6px 10px rgba(255, 255, 255, 0.3),
+          inset 3px 0 8px rgba(255, 255, 255, 0.1);
+        animation: fastZombieBob 0.4s ease-in-out infinite;
+      }
+
+      @keyframes fastZombieBob {
+        0%, 100% { transform: perspective(100px) rotateX(20deg) translateY(0) rotate(-2deg); }
+        50% { transform: perspective(100px) rotateX(20deg) translateY(-4px) rotate(2deg); }
       }
 
       .enemy.fast-zombie::before {
         content: "";
-        width: 6px;
-        height: 6px;
-        background: #ffff00;
+        width: 7px;
+        height: 7px;
+        background: radial-gradient(circle at 30% 30%, #ffff66, #ffcc00);
         border-radius: 50%;
         box-shadow:
-          10px 0 0 #ffff00,
-          5px 6px 0 2px #1a1a1a;
+          12px 0 0 #ffcc00,
+          12px 0 0 2px rgba(255, 255, 0, 0.3),
+          0 0 0 2px rgba(255, 255, 0, 0.3),
+          0 0 8px rgba(255, 255, 0, 0.5),
+          12px 0 8px rgba(255, 255, 0, 0.5),
+          6px 8px 0 3px #1a1a1a;
+      }
+
+      .enemy.fast-zombie::after {
+        content: "";
+        position: absolute;
+        top: -5px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 18px;
+        height: 7px;
+        background: linear-gradient(to bottom, rgba(255,255,255,0.5), transparent);
+        border-radius: 50%;
       }
 
       .enemy.tank-zombie {
         width: 55px;
         height: 55px;
-        background: linear-gradient(145deg, #a569bd, #6c3483);
+        background: radial-gradient(ellipse at 30% 20%, #c896d9 0%, #a569bd 30%, #6c3483 70%, #4a235a 100%);
         border: 3px solid #9b59b6;
         box-shadow:
-          0 10px 0 #4a235a,
-          0 12px 20px rgba(0, 0, 0, 0.5),
-          0 0 15px rgba(155, 89, 182, 0.5),
-          inset 0 -6px 15px rgba(0, 0, 0, 0.3),
-          inset 0 6px 12px rgba(255, 255, 255, 0.2);
+          0 12px 0 #2c1338,
+          0 15px 25px rgba(0, 0, 0, 0.6),
+          0 0 25px rgba(155, 89, 182, 0.6),
+          inset 0 -10px 20px rgba(0, 0, 0, 0.4),
+          inset 0 8px 15px rgba(255, 255, 255, 0.25),
+          inset 4px 0 10px rgba(255, 255, 255, 0.1);
+        animation: tankZombieBob 1s ease-in-out infinite;
+      }
+
+      @keyframes tankZombieBob {
+        0%, 100% { transform: perspective(100px) rotateX(20deg) translateY(0) scale(1); }
+        50% { transform: perspective(100px) rotateX(20deg) translateY(-2px) scale(1.02); }
       }
 
       .enemy.tank-zombie::before {
         content: "";
-        width: 12px;
-        height: 12px;
-        background: #ff0000;
+        width: 14px;
+        height: 14px;
+        background: radial-gradient(circle at 30% 30%, #ff4444, #cc0000);
         border-radius: 50%;
         box-shadow:
-          18px 0 0 #ff0000,
-          9px 10px 0 5px #1a1a1a;
+          20px 0 0 #cc0000,
+          20px 0 0 3px rgba(255, 0, 0, 0.3),
+          0 0 0 3px rgba(255, 0, 0, 0.3),
+          0 0 10px rgba(255, 0, 0, 0.4),
+          20px 0 10px rgba(255, 0, 0, 0.4),
+          10px 12px 0 6px #1a1a1a,
+          10px 15px 5px 6px rgba(0, 0, 0, 0.3);
       }
 
       .enemy.tank-zombie::after {
         content: "";
         position: absolute;
-        top: 8px;
-        width: 35px;
-        height: 6px;
-        background: linear-gradient(90deg, #666, #888, #666);
-        border-radius: 3px;
+        top: 6px;
+        width: 38px;
+        height: 8px;
+        background: linear-gradient(180deg, #999 0%, #777 40%, #555 100%);
+        border-radius: 4px;
+        box-shadow:
+          0 2px 0 #333,
+          inset 0 2px 3px rgba(255, 255, 255, 0.4);
       }
 
       /* PROJECTILES ET EFFETS - Style 3D */
@@ -2363,6 +2424,17 @@
         100% { filter: brightness(2) hue-rotate(200deg); }
       }
 
+      @keyframes warningPulse {
+        0%, 100% { transform: translate(-50%, -50%) scale(1); box-shadow: 0 0 30px rgba(231, 76, 60, 0.8); }
+        50% { transform: translate(-50%, -50%) scale(1.05); box-shadow: 0 0 50px rgba(231, 76, 60, 1); }
+      }
+
+      @keyframes adaptApplied {
+        0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+        50% { transform: translate(-50%, -50%) scale(1.1); }
+        100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+      }
+
       /* HEAL ITEM DROP - LEGENDARY */
       .heal-item {
         position: absolute;
@@ -2621,10 +2693,6 @@
       <div id="gameHub">
         <div class="hub-header">
           <div class="hub-currency">
-            <div class="currency-box coins">
-              <span class="currency-icon">💰</span>
-              <span class="currency-amount" id="hubCoins">0</span>
-            </div>
             <div class="currency-box gems">
               <span class="currency-icon">💎</span>
               <span class="currency-amount" id="hubGems">0</span>
@@ -3132,7 +3200,7 @@
       }
 
       // Stats du joueur
-      let baseDamage = 10;
+      let baseDamage = 25;
       let attackSpeed = 1000;
       let attackRange = 200;
       let bulletSpeed = 10;
@@ -3148,9 +3216,9 @@
       const ADAPTATION_GRACE_PERIOD = 180000; // 3 minutes de grâce au début
 
       function addZombieBuff(healthBonus, damageBonus) {
-        // Ne pas activer l'adaptation pendant les 3 premières minutes
-        if (Date.now() - gameStartTime < ADAPTATION_GRACE_PERIOD) {
-          return; // Pas d'adaptation pendant la période de grâce
+        // Ne pas activer l'adaptation pendant la vague 1
+        if (currentWave <= 1) {
+          return; // Pas d'adaptation pendant la première vague
         }
 
         // Enregistrer l'achat
@@ -3183,18 +3251,19 @@
           top: 50%;
           left: 50%;
           transform: translate(-50%, -50%);
-          background: rgba(231, 76, 60, 0.9);
+          background: linear-gradient(145deg, rgba(231, 76, 60, 0.95), rgba(192, 57, 43, 0.95));
           color: white;
-          padding: 20px 30px;
-          border-radius: 10px;
-          font-size: 20px;
+          padding: 25px 40px;
+          border-radius: 15px;
+          font-size: 24px;
           font-weight: bold;
           z-index: 150;
           text-align: center;
-          border: 2px solid #c0392b;
-          animation: pulse 0.5s ease-in-out 3;
+          border: 3px solid #e74c3c;
+          box-shadow: 0 0 30px rgba(231, 76, 60, 0.8), inset 0 0 20px rgba(0,0,0,0.3);
+          animation: warningPulse 0.5s ease-in-out infinite;
         `;
-        warning.innerHTML = '⚠️ Les zombies s\'adaptent dans 30 secondes!';
+        warning.innerHTML = '⚠️ ATTENTION ⚠️<br><span style="font-size: 18px;">Les zombies s\'adaptent dans 30 secondes!</span><br><span style="font-size: 14px; color: #ffcccc;">Ils deviendront plus forts...</span>';
         gameCanvas.appendChild(warning);
         setTimeout(() => warning.remove(), 4000);
       }
@@ -3219,19 +3288,21 @@
           top: 50%;
           left: 50%;
           transform: translate(-50%, -50%);
-          background: rgba(192, 57, 43, 0.95);
+          background: linear-gradient(145deg, rgba(142, 68, 173, 0.95), rgba(192, 57, 43, 0.95));
           color: white;
-          padding: 20px 30px;
-          border-radius: 10px;
-          font-size: 22px;
+          padding: 30px 50px;
+          border-radius: 15px;
+          font-size: 28px;
           font-weight: bold;
           z-index: 150;
           text-align: center;
-          border: 2px solid #e74c3c;
+          border: 3px solid #9b59b6;
+          box-shadow: 0 0 40px rgba(142, 68, 173, 0.8), inset 0 0 20px rgba(0,0,0,0.3);
+          animation: adaptApplied 0.3s ease-out;
         `;
-        warning.innerHTML = '💀 Les zombies se sont adaptés!<br><small>+15% PV, +10% Dégâts</small>';
+        warning.innerHTML = '💀 ZOMBIES ADAPTÉS! 💀<br><span style="font-size: 18px; color: #ff6b6b;">+15% PV | +10% Dégâts</span><br><span style="font-size: 14px; color: #ddd;">Les ennemis sont plus dangereux!</span>';
         gameCanvas.appendChild(warning);
-        setTimeout(() => warning.remove(), 3000);
+        setTimeout(() => warning.remove(), 3500);
       }
       let orbitalCount = 0;
       let orbitalDamage = 5;
@@ -4727,7 +4798,6 @@
 
       // Mettre à jour l'affichage du hub
       function updateHubDisplay() {
-        document.getElementById('hubCoins').textContent = permanentData.coins;
         document.getElementById('hubGems').textContent = permanentData.gems;
         document.getElementById('hubPlayerLevel').textContent = permanentData.playerLevel;
 
@@ -5297,28 +5367,10 @@
           return;
         }
 
-        // Code Erwan : débloquer toutes les armures au niveau max
+        // Code Erwan : bonus de gemmes
         if (code === 'Erwan') {
-          // Mettre toutes les armures au niveau max
-          permanentData.shopLevels.helmet = 10;
-          permanentData.shopLevels.chestplate = 10;
-          permanentData.shopLevels.gloves = 10;
-          permanentData.shopLevels.boots = 10;
-          permanentData.shopLevels.ring = 10;
-          permanentData.shopLevels.amulet = 5;
-          permanentData.shopLevels.cape = 5;
-          permanentData.shopLevels.shield = 8;
-
-          // Appliquer les effets
-          permanentData.permHealth = 150 + 160; // Casque + Bouclier
-          permanentData.permArmor = 30 + 16;    // Plastron + Bouclier
-          permanentData.permDamage = 50;        // Gants
-          permanentData.permSpeed = 40;         // Bottes
-          permanentData.permRange = 150;        // Anneau
-
-          // Bonus pièces et gemmes
-          permanentData.coins += 5000;
-          permanentData.gems += 500;
+          // Bonus gemmes uniquement
+          permanentData.gems += 50;
 
           // Marquer comme utilisé
           if (!permanentData.usedCodes) permanentData.usedCodes = [];
@@ -5327,9 +5379,9 @@
           savePermanentData();
           updateHubDisplay();
 
-          message.style.color = '#2ecc71';
-          message.textContent = '🎁 Toutes les armures débloquées!';
-          showHubMessage('🎁 CODE ERWAN: Tout débloqué!');
+          message.style.color = '#e056fd';
+          message.textContent = '💎 +50 gemmes!';
+          showHubMessage('💎 CODE ERWAN: +50 gemmes!');
           return;
         }
 
@@ -5886,7 +5938,7 @@
         currentGemsAccumulated = 0;
         lastGemMinute = 0;
         playerLevel = 1;
-        baseDamage = 10 * (1 + permDamageBonus / 100);
+        baseDamage = 25 * (1 + permDamageBonus / 100);
         attackSpeed = 1000 * (1 - permSpeedBonus / 100);
         attackRange = 200 + permRangeBonus;
         bulletSpeed = 10;
