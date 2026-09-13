@@ -412,6 +412,77 @@
         overflow: hidden;
       }
 
+      /* ===== FOND ANIME DU HUB ===== */
+      #hubBackground {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      /* Lueur verte qui respire */
+      #hubBackground::before {
+        content: "";
+        position: absolute;
+        top: -30%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 900px;
+        height: 900px;
+        background: radial-gradient(
+          circle,
+          rgba(46, 204, 113, 0.13) 0%,
+          transparent 62%
+        );
+        animation: hubGlow 9s ease-in-out infinite;
+      }
+
+      /* Halo rouge cote zombie */
+      #hubBackground::after {
+        content: "";
+        position: absolute;
+        bottom: -25%;
+        right: -10%;
+        width: 700px;
+        height: 700px;
+        background: radial-gradient(
+          circle,
+          rgba(192, 57, 43, 0.1) 0%,
+          transparent 65%
+        );
+        animation: hubGlow 13s ease-in-out infinite reverse;
+      }
+
+      @keyframes hubGlow {
+        0%, 100% { opacity: 0.45; transform: translateX(-50%) scale(1); }
+        50% { opacity: 1; transform: translateX(-50%) scale(1.18); }
+      }
+
+      /* Braises qui montent lentement */
+      .hub-ember {
+        position: absolute;
+        bottom: -20px;
+        border-radius: 50%;
+        background: rgba(46, 204, 113, 0.5);
+        animation: emberRise linear infinite;
+      }
+
+      @keyframes emberRise {
+        0% { transform: translateY(0) translateX(0); opacity: 0; }
+        12% { opacity: 0.8; }
+        88% { opacity: 0.5; }
+        100% { transform: translateY(-105vh) translateX(30px); opacity: 0; }
+      }
+
+      /* Le contenu passe au-dessus du fond */
+      .hub-header,
+      .hub-content,
+      .hub-footer {
+        position: relative;
+        z-index: 2;
+      }
+
       .hub-header {
         display: flex;
         justify-content: space-between;
@@ -4062,6 +4133,7 @@
 
       <!-- ========== HUB / LOBBY (Archero-like) ========== -->
       <div id="gameHub">
+        <div id="hubBackground"></div>
         <div class="hub-header">
           <div class="hub-currency">
             <div class="currency-box coins">
@@ -4118,8 +4190,8 @@
             </div>
 
             <!-- Défis -->
-            <div class="hub-btn locked" data-unlock="5">
-              <span class="hub-btn-icon">🏆</span>
+            <div class="hub-btn" onclick="openHubChallenges()">
+              <span class="hub-btn-icon">🎯</span>
               <span class="hub-btn-text">Défis</span>
             </div>
 
@@ -4140,11 +4212,39 @@
               <span class="hub-btn-icon">🏆</span>
               <span class="hub-btn-text">Classement</span>
             </div>
+
+            <!-- Renaissance -->
+            <div class="hub-btn" onclick="openHubRebirth()">
+              <span class="hub-btn-icon">🔥</span>
+              <span class="hub-btn-text">Renaissance</span>
+            </div>
           </div>
         </div>
 
         <div class="hub-footer">
           <p class="hub-footer-text">🏰 Tower Defense Survie v1.0</p>
+        </div>
+
+        <!-- SUB-MENU: Défis -->
+        <div class="hub-submenu" id="hubChallengesMenu">
+          <div class="submenu-header">
+            <button class="submenu-back" onclick="closeHubSubmenu()">←</button>
+            <h2 class="submenu-title">🎯 Défis de la semaine</h2>
+          </div>
+          <div class="submenu-content">
+            <div id="challengesList"></div>
+          </div>
+        </div>
+
+        <!-- SUB-MENU: Renaissance -->
+        <div class="hub-submenu" id="hubRebirthMenu">
+          <div class="submenu-header">
+            <button class="submenu-back" onclick="closeHubSubmenu()">←</button>
+            <h2 class="submenu-title">🔥 Renaissance</h2>
+          </div>
+          <div class="submenu-content">
+            <div id="rebirthContent"></div>
+          </div>
         </div>
 
         <!-- SUB-MENU: Classement -->
@@ -4928,6 +5028,8 @@
       let adaptationPending = false; // Si une adaptation est en attente
       let gameStartTime = 0; // Heure de début de la partie
       let enemiesSpawnedTotal = 0; // total de zombies apparus (controle anti-triche)
+      let itemsCollectedThisRun = 0; // objets ramasses (defis)
+      let bossesKilledThisRun = 0; // boss vaincus (defis)
       const ADAPTATION_GRACE_PERIOD = 180000; // 3 minutes de grâce au début
 
       function addZombieBuff(healthBonus, damageBonus) {
@@ -5667,6 +5769,7 @@
 
       // Fonction pour ramasser un item de soin
       function pickupHealItem(itemData) {
+        itemsCollectedThisRun++;
         if (itemData.rarity === "epic") {
           // Soin immediat de 50% des PV max
           const heal = Math.round(maxHealth * 0.5);
@@ -6996,6 +7099,7 @@
         loadPermanentData();
         mainMenu.style.display = "none";
         gameHub.style.display = "flex";
+        initHubBackground();
       }
 
       // Fermer le hub et retourner au menu
@@ -8133,6 +8237,363 @@
         }
       }
 
+      // Cree les braises animees du fond du hub
+      function initHubBackground() {
+        const fond = document.getElementById("hubBackground");
+        if (!fond || fond.dataset.pret) return;
+        fond.dataset.pret = "1";
+        for (let i = 0; i < 22; i++) {
+          const e = document.createElement("div");
+          e.className = "hub-ember";
+          const taille = 2 + Math.random() * 4;
+          e.style.width = taille + "px";
+          e.style.height = taille + "px";
+          e.style.left = Math.random() * 100 + "%";
+          e.style.animationDuration = 10 + Math.random() * 14 + "s";
+          e.style.animationDelay = Math.random() * 12 + "s";
+          if (Math.random() > 0.72) {
+            e.style.background = "rgba(231, 76, 60, 0.45)";
+          }
+          fond.appendChild(e);
+        }
+      }
+
+
+      // ============ SYSTEME DE DEFIS HEBDOMADAIRES ============
+      // 50 defis repartis en 4 paliers de difficulte.
+      // Chaque semaine, 6 defis sont tires selon le niveau du joueur.
+      const TOUS_LES_DEFIS = [
+        // --- PALIER 1 : debutant (niveau 1+) ---
+        { id: "d01", palier: 1, texte: "Tuer 50 zombies", type: "kills", cible: 50, piecesGagnees: 150, gemmesGagnees: 2 },
+        { id: "d02", palier: 1, texte: "Atteindre la vague 5", type: "vague", cible: 5, piecesGagnees: 200, gemmesGagnees: 3 },
+        { id: "d03", palier: 1, texte: "Survivre 2 minutes", type: "temps", cible: 120, piecesGagnees: 180, gemmesGagnees: 2 },
+        { id: "d04", palier: 1, texte: "Jouer 3 parties", type: "parties", cible: 3, piecesGagnees: 120, gemmesGagnees: 2 },
+        { id: "d05", palier: 1, texte: "Gagner 500$ en une partie", type: "argent", cible: 500, piecesGagnees: 160, gemmesGagnees: 2 },
+        { id: "d06", palier: 1, texte: "Atteindre le niveau 3", type: "niveau", cible: 3, piecesGagnees: 140, gemmesGagnees: 2 },
+        { id: "d07", palier: 1, texte: "Tuer 100 zombies", type: "kills", cible: 100, piecesGagnees: 220, gemmesGagnees: 3 },
+        { id: "d08", palier: 1, texte: "Ramasser 1 objet", type: "objets", cible: 1, piecesGagnees: 130, gemmesGagnees: 2 },
+        { id: "d09", palier: 1, texte: "Placer 2 tourelles", type: "tourelles", cible: 2, piecesGagnees: 150, gemmesGagnees: 2 },
+        { id: "d10", palier: 1, texte: "Survivre 3 minutes", type: "temps", cible: 180, piecesGagnees: 200, gemmesGagnees: 3 },
+        { id: "d11", palier: 1, texte: "Atteindre la vague 8", type: "vague", cible: 8, piecesGagnees: 260, gemmesGagnees: 3 },
+        { id: "d12", palier: 1, texte: "Jouer 5 parties", type: "parties", cible: 5, piecesGagnees: 200, gemmesGagnees: 3 },
+        // --- PALIER 2 : confirme (niveau 5+) ---
+        { id: "d13", palier: 2, texte: "Atteindre la vague 10", type: "vague", cible: 10, piecesGagnees: 400, gemmesGagnees: 5 },
+        { id: "d14", palier: 2, texte: "Tuer 250 zombies", type: "kills", cible: 250, piecesGagnees: 450, gemmesGagnees: 5 },
+        { id: "d15", palier: 2, texte: "Survivre 5 minutes", type: "temps", cible: 300, piecesGagnees: 420, gemmesGagnees: 5 },
+        { id: "d16", palier: 2, texte: "Vaincre 1 boss", type: "boss", cible: 1, piecesGagnees: 500, gemmesGagnees: 6 },
+        { id: "d17", palier: 2, texte: "Gagner 2000$ en une partie", type: "argent", cible: 2000, piecesGagnees: 400, gemmesGagnees: 5 },
+        { id: "d18", palier: 2, texte: "Atteindre le niveau 8", type: "niveau", cible: 8, piecesGagnees: 380, gemmesGagnees: 4 },
+        { id: "d19", palier: 2, texte: "Ramasser 5 objets", type: "objets", cible: 5, piecesGagnees: 350, gemmesGagnees: 4 },
+        { id: "d20", palier: 2, texte: "Placer 5 tourelles", type: "tourelles", cible: 5, piecesGagnees: 380, gemmesGagnees: 4 },
+        { id: "d21", palier: 2, texte: "Jouer 10 parties", type: "parties", cible: 10, piecesGagnees: 450, gemmesGagnees: 5 },
+        { id: "d22", palier: 2, texte: "Tuer 400 zombies", type: "kills", cible: 400, piecesGagnees: 550, gemmesGagnees: 6 },
+        { id: "d23", palier: 2, texte: "Atteindre la vague 13", type: "vague", cible: 13, piecesGagnees: 520, gemmesGagnees: 6 },
+        { id: "d24", palier: 2, texte: "Survivre 7 minutes", type: "temps", cible: 420, piecesGagnees: 500, gemmesGagnees: 6 },
+        { id: "d25", palier: 2, texte: "Atteindre le niveau 10", type: "niveau", cible: 10, piecesGagnees: 480, gemmesGagnees: 5 },
+        // --- PALIER 3 : expert (niveau 12+) ---
+        { id: "d26", palier: 3, texte: "Atteindre la vague 20", type: "vague", cible: 20, piecesGagnees: 900, gemmesGagnees: 12 },
+        { id: "d27", palier: 3, texte: "Tuer 800 zombies", type: "kills", cible: 800, piecesGagnees: 950, gemmesGagnees: 12 },
+        { id: "d28", palier: 3, texte: "Survivre 10 minutes", type: "temps", cible: 600, piecesGagnees: 1000, gemmesGagnees: 14 },
+        { id: "d29", palier: 3, texte: "Vaincre 2 boss", type: "boss", cible: 2, piecesGagnees: 1100, gemmesGagnees: 15 },
+        { id: "d30", palier: 3, texte: "Gagner 6000$ en une partie", type: "argent", cible: 6000, piecesGagnees: 900, gemmesGagnees: 12 },
+        { id: "d31", palier: 3, texte: "Atteindre le niveau 15", type: "niveau", cible: 15, piecesGagnees: 850, gemmesGagnees: 11 },
+        { id: "d32", palier: 3, texte: "Ramasser 15 objets", type: "objets", cible: 15, piecesGagnees: 800, gemmesGagnees: 10 },
+        { id: "d33", palier: 3, texte: "Placer 10 tourelles", type: "tourelles", cible: 10, piecesGagnees: 820, gemmesGagnees: 10 },
+        { id: "d34", palier: 3, texte: "Jouer 20 parties", type: "parties", cible: 20, piecesGagnees: 950, gemmesGagnees: 12 },
+        { id: "d35", palier: 3, texte: "Atteindre la vague 25", type: "vague", cible: 25, piecesGagnees: 1200, gemmesGagnees: 16 },
+        { id: "d36", palier: 3, texte: "Tuer 1200 zombies", type: "kills", cible: 1200, piecesGagnees: 1150, gemmesGagnees: 15 },
+        { id: "d37", palier: 3, texte: "Survivre 13 minutes", type: "temps", cible: 780, piecesGagnees: 1250, gemmesGagnees: 16 },
+        { id: "d38", palier: 3, texte: "Atteindre le niveau 18", type: "niveau", cible: 18, piecesGagnees: 1000, gemmesGagnees: 13 },
+        // --- PALIER 4 : legende (niveau 20+) ---
+        { id: "d39", palier: 4, texte: "Atteindre la vague 30", type: "vague", cible: 30, piecesGagnees: 2000, gemmesGagnees: 25 },
+        { id: "d40", palier: 4, texte: "Tuer 2000 zombies", type: "kills", cible: 2000, piecesGagnees: 2100, gemmesGagnees: 26 },
+        { id: "d41", palier: 4, texte: "Survivre 18 minutes", type: "temps", cible: 1080, piecesGagnees: 2200, gemmesGagnees: 28 },
+        { id: "d42", palier: 4, texte: "Vaincre 4 boss", type: "boss", cible: 4, piecesGagnees: 2500, gemmesGagnees: 32 },
+        { id: "d43", palier: 4, texte: "Gagner 15000$ en une partie", type: "argent", cible: 15000, piecesGagnees: 2000, gemmesGagnees: 25 },
+        { id: "d44", palier: 4, texte: "Atteindre le niveau 25", type: "niveau", cible: 25, piecesGagnees: 1900, gemmesGagnees: 24 },
+        { id: "d45", palier: 4, texte: "Ramasser 30 objets", type: "objets", cible: 30, piecesGagnees: 1800, gemmesGagnees: 22 },
+        { id: "d46", palier: 4, texte: "Placer 20 tourelles", type: "tourelles", cible: 20, piecesGagnees: 1850, gemmesGagnees: 22 },
+        { id: "d47", palier: 4, texte: "Jouer 40 parties", type: "parties", cible: 40, piecesGagnees: 2200, gemmesGagnees: 26 },
+        { id: "d48", palier: 4, texte: "Atteindre la vague 40", type: "vague", cible: 40, piecesGagnees: 3000, gemmesGagnees: 40 },
+        { id: "d49", palier: 4, texte: "Tuer 3500 zombies", type: "kills", cible: 3500, piecesGagnees: 2800, gemmesGagnees: 35 },
+        { id: "d50", palier: 4, texte: "Survivre 25 minutes", type: "temps", cible: 1500, piecesGagnees: 3200, gemmesGagnees: 42 },
+      ];
+
+      // Numero de la semaine en cours (identique pour tous les joueurs)
+      function numeroSemaine() {
+        const d = new Date();
+        const debut = new Date(d.getFullYear(), 0, 1);
+        const jours = Math.floor((d - debut) / 86400000);
+        return d.getFullYear() * 100 + Math.ceil((jours + debut.getDay() + 1) / 7);
+      }
+
+      // Tirage reproductible a partir d'une graine
+      function tirageSemaine(graine) {
+        let x = Math.sin(graine) * 10000;
+        return x - Math.floor(x);
+      }
+
+      // Paliers accessibles selon le niveau atteint par le joueur
+      function paliersDisponibles() {
+        const niv = permanentData.playerLevel || 1;
+        const meilleure = permanentData.bestWave || 0;
+        const paliers = [1];
+        if (niv >= 5 || meilleure >= 8) paliers.push(2);
+        if (niv >= 12 || meilleure >= 15) paliers.push(3);
+        if (niv >= 20 || meilleure >= 25) paliers.push(4);
+        return paliers;
+      }
+
+      // Prepare les defis de la semaine, en repartant a zero si la semaine a change
+      function preparerDefisSemaine() {
+        const semaine = numeroSemaine();
+        if (!permanentData.defis || permanentData.defis.semaine !== semaine) {
+          const dispo = paliersDisponibles();
+          const candidats = TOUS_LES_DEFIS.filter((d) => dispo.includes(d.palier));
+
+          // Selection pseudo-aleatoire mais stable pour la semaine
+          const choisis = [];
+          const restants = [...candidats];
+          let graine = semaine;
+          while (choisis.length < 6 && restants.length) {
+            graine++;
+            const i = Math.floor(tirageSemaine(graine) * restants.length);
+            choisis.push(restants.splice(i, 1)[0].id);
+          }
+
+          permanentData.defis = {
+            semaine: semaine,
+            liste: choisis,
+            progression: {},
+            reclames: [],
+          };
+          savePermanentData();
+        }
+      }
+
+      // Fait progresser un defi (appele pendant et apres les parties)
+      function progresserDefi(type, valeur, cumul) {
+        if (!permanentData.defis) return;
+        const prog = permanentData.defis.progression;
+        let modifie = false;
+
+        permanentData.defis.liste.forEach((id) => {
+          const defi = TOUS_LES_DEFIS.find((d) => d.id === id);
+          if (!defi || defi.type !== type) return;
+          const actuel = prog[id] || 0;
+          // cumul = on additionne ; sinon on garde le meilleur score
+          const nouveau = cumul ? actuel + valeur : Math.max(actuel, valeur);
+          if (nouveau !== actuel) {
+            prog[id] = nouveau;
+            modifie = true;
+          }
+        });
+        if (modifie) savePermanentData();
+      }
+
+      // Reclamer la recompense d'un defi termine
+      function reclamerDefi(id) {
+        const defi = TOUS_LES_DEFIS.find((d) => d.id === id);
+        if (!defi) return;
+        const d = permanentData.defis;
+        if (d.reclames.includes(id)) return;
+        if ((d.progression[id] || 0) < defi.cible) return;
+
+        permanentData.coins += defi.piecesGagnees;
+        permanentData.gems += defi.gemmesGagnees;
+        d.reclames.push(id);
+        savePermanentData();
+        updateHubDisplay();
+        afficherDefis();
+        showHubMessage(
+          "🏆 +" + defi.piecesGagnees + " pièces et +" + defi.gemmesGagnees + " gemmes !"
+        );
+      }
+
+      function openHubChallenges() {
+        closeHubSubmenu();
+        preparerDefisSemaine();
+        afficherDefis();
+        document.getElementById("hubChallengesMenu").style.display = "flex";
+      }
+
+      // Temps restant avant la rotation des defis
+      function tempsAvantRotation() {
+        const d = new Date();
+        const jourSemaine = (d.getDay() + 6) % 7; // lundi = 0
+        const restants = 6 - jourSemaine;
+        const heures = 23 - d.getHours();
+        if (restants === 0) return heures + "h";
+        return restants + "j " + heures + "h";
+      }
+
+      function afficherDefis() {
+        const zone = document.getElementById("challengesList");
+        const d = permanentData.defis;
+        if (!zone || !d) return;
+
+        let html =
+          "<p style='color:#888;font-size:13px;margin-bottom:14px'>" +
+          "Nouveaux défis dans " + tempsAvantRotation() +
+          " &nbsp;·&nbsp; Paliers débloqués : " + paliersDisponibles().join(", ") +
+          "</p>";
+
+        d.liste.forEach((id) => {
+          const defi = TOUS_LES_DEFIS.find((x) => x.id === id);
+          if (!defi) return;
+          const fait = d.progression[id] || 0;
+          const pct = Math.min(100, Math.round((fait / defi.cible) * 100));
+          const termine = fait >= defi.cible;
+          const reclame = d.reclames.includes(id);
+          const couleurs = ["#2ecc71", "#3498db", "#9b59b6", "#f1c40f"];
+          const couleur = couleurs[defi.palier - 1];
+
+          html +=
+            "<div style='background:rgba(30,30,60,0.75);border-left:4px solid " +
+            couleur + ";border-radius:10px;padding:12px 14px;margin-bottom:10px'>" +
+            "<div style='display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap'>" +
+            "<span style='font-weight:bold;color:#fff'>" + defi.texte + "</span>" +
+            "<span style='font-size:12px;color:" + couleur + "'>💰" +
+            defi.piecesGagnees + " · 💎" + defi.gemmesGagnees + "</span></div>" +
+            "<div style='background:#111;border-radius:6px;height:9px;margin:9px 0;overflow:hidden'>" +
+            "<div style='width:" + pct + "%;height:100%;background:" + couleur +
+            ";transition:width .4s'></div></div>" +
+            "<div style='display:flex;justify-content:space-between;align-items:center'>" +
+            "<span style='font-size:12px;color:#aaa'>" +
+            Math.min(fait, defi.cible) + " / " + defi.cible + "</span>";
+
+          if (reclame) {
+            html += "<span style='font-size:12px;color:#2ecc71'>✅ Récompense reçue</span>";
+          } else if (termine) {
+            html +=
+              "<button onclick=\"reclamerDefi('" + id + "')\" " +
+              "style='padding:6px 14px;border:none;border-radius:7px;background:" +
+              couleur + ";color:#111;font-weight:bold;cursor:pointer'>Réclamer</button>";
+          } else {
+            html += "<span style='font-size:12px;color:#666'>En cours</span>";
+          }
+          html += "</div></div>";
+        });
+        zone.innerHTML = html;
+      }
+
+
+      // ============ RENAISSANCE (recommencer avec un avantage) ============
+      // Le joueur remet sa progression a zero et gagne un bonus permanent
+      // qui s'applique a toutes ses parties futures.
+      function niveauRenaissance() {
+        return permanentData.renaissances || 0;
+      }
+
+      // Bonus permanent : +10% de degats et +10% de pieces par renaissance
+      function bonusRenaissance() {
+        return niveauRenaissance() * 0.1;
+      }
+
+      function conditionRenaissanceRemplie() {
+        const meilleure = permanentData.bestWave || 0;
+        return meilleure >= seuilRenaissance();
+      }
+
+      // Le seuil monte a chaque renaissance
+      function seuilRenaissance() {
+        return 15 + niveauRenaissance() * 10;
+      }
+
+      function openHubRebirth() {
+        closeHubSubmenu();
+        afficherRenaissance();
+        document.getElementById("hubRebirthMenu").style.display = "flex";
+      }
+
+      function afficherRenaissance() {
+        const zone = document.getElementById("rebirthContent");
+        const niv = niveauRenaissance();
+        const meilleure = permanentData.bestWave || 0;
+        const seuil = seuilRenaissance();
+        const pret = conditionRenaissanceRemplie();
+        const bonusActuel = Math.round(bonusRenaissance() * 100);
+        const bonusFutur = Math.round((niv + 1) * 10);
+
+        zone.innerHTML =
+          "<div style='background:rgba(231,76,60,0.1);border:2px solid #e74c3c;" +
+          "border-radius:12px;padding:16px;margin-bottom:16px'>" +
+          "<p style='color:#e74c3c;font-weight:bold;margin-bottom:8px'>" +
+          "Renaissance " + niv + "</p>" +
+          "<p style='color:#ddd;font-size:14px;line-height:1.6'>" +
+          "Tu repars de zéro : pièces, gemmes, armures, compétences, tourelles " +
+          "et équipement sont remis à zéro. En échange, tu gardes un bonus " +
+          "définitif qui s'applique à toutes tes parties suivantes.</p></div>" +
+
+          "<div style='background:rgba(30,30,60,0.75);border-radius:12px;padding:16px;margin-bottom:16px'>" +
+          "<p style='color:#2ecc71;font-weight:bold;margin-bottom:10px'>Ton bonus</p>" +
+          "<p style='color:#ddd;font-size:14px'>Actuellement : <b style='color:#2ecc71'>+" +
+          bonusActuel + "% de dégâts</b> et <b style='color:#f1c40f'>+" + bonusActuel +
+          "% de pièces</b></p>" +
+          "<p style='color:#aaa;font-size:14px;margin-top:6px'>Après renaissance : <b style='color:#2ecc71'>+" +
+          bonusFutur + "%</b> et <b style='color:#f1c40f'>+" + bonusFutur + "%</b></p></div>" +
+
+          "<div style='background:rgba(30,30,60,0.75);border-radius:12px;padding:16px;margin-bottom:16px'>" +
+          "<p style='color:#3498db;font-weight:bold;margin-bottom:10px'>Condition</p>" +
+          "<p style='color:#ddd;font-size:14px'>Atteindre la vague " + seuil +
+          " — meilleure vague actuelle : <b style='color:" +
+          (pret ? "#2ecc71" : "#e74c3c") + "'>" + meilleure + "</b></p>" +
+          "<div style='background:#111;border-radius:6px;height:10px;margin-top:10px;overflow:hidden'>" +
+          "<div style='width:" + Math.min(100, Math.round((meilleure / seuil) * 100)) +
+          "%;height:100%;background:#3498db'></div></div></div>" +
+
+          (pret
+            ? "<button onclick='lancerRenaissance()' style='width:100%;padding:14px;border:none;" +
+              "border-radius:10px;background:linear-gradient(145deg,#e74c3c,#c0392b);color:#fff;" +
+              "font-size:16px;font-weight:bold;cursor:pointer'>🔥 Renaître</button>"
+            : "<p style='text-align:center;color:#666;padding:14px'>Atteins la vague " +
+              seuil + " pour débloquer la renaissance.</p>");
+      }
+
+      function lancerRenaissance() {
+        if (!conditionRenaissanceRemplie()) return;
+        const niv = niveauRenaissance() + 1;
+        const confirmation = confirm(
+          "Renaître ?\n\n" +
+            "Tu perds : pièces, gemmes, armures, compétences, tourelles et équipement.\n" +
+            "Tu gagnes définitivement : +" + niv * 10 + "% de dégâts et +" + niv * 10 + "% de pièces.\n\n" +
+            "Tes statistiques et tes scores du classement sont conservés."
+        );
+        if (!confirmation) return;
+
+        const stats = permanentData.stats;
+        const meilleureVague = permanentData.bestWave;
+        const totalKillsGarde = permanentData.totalKills;
+        const pseudo = permanentData.pseudo;
+        const settings = permanentData.settings;
+
+        permanentData.renaissances = niv;
+        permanentData.coins = 0;
+        permanentData.gems = 0;
+        permanentData.shopLevels = {};
+        permanentData.skillLevels = {};
+        permanentData.turretLevels = {};
+        permanentData.inventory = [];
+        permanentData.equipped = {
+          weapon: null, helmet: null, armor: null,
+          ring: null, necklace: null, boots: null,
+        };
+        permanentData.permHealth = 0;
+        permanentData.permDamage = 0;
+        permanentData.permArmor = 0;
+        permanentData.playerLevel = 1;
+        permanentData.stats = stats;
+        permanentData.bestWave = meilleureVague;
+        permanentData.totalKills = totalKillsGarde;
+        permanentData.pseudo = pseudo;
+        permanentData.settings = settings;
+
+        savePermanentData();
+        updateHubDisplay();
+        afficherRenaissance();
+        showHubMessage("🔥 Renaissance " + niv + " ! Bonus permanent : +" + niv * 10 + "%");
+      }
+
       function openHubStats() {
         closeHubSubmenu();
         updateHubDisplay();
@@ -8330,6 +8791,8 @@
 
       // Ajouter des pièces après une partie (appelé quand le joueur meurt)
       function addCoinsAfterGame(amount, killCount, waveReached) {
+        // Bonus permanent de renaissance sur les pieces
+        amount = Math.round(amount * (1 + bonusRenaissance()));
         permanentData.coins += amount;
         permanentData.totalKills += killCount;
         permanentData.totalMoneyEarned += amount;
@@ -9031,6 +9494,9 @@
         shopOpen = false;
         gameStartTime = Date.now(); // Enregistrer l'heure de début pour la période de grâce
         enemiesSpawnedTotal = 0;
+        itemsCollectedThisRun = 0;
+        bossesKilledThisRun = 0;
+        preparerDefisSemaine();
         runLog = [];
         runFlags = [];
         runValid = true;
@@ -9077,7 +9543,8 @@
         currentGemsAccumulated = 0;
         lastGemMinute = 0;
         playerLevel = 1;
-        baseDamage = 25 * (1 + permDamageBonus / 100) + equipAtk;
+        baseDamage =
+          (25 * (1 + permDamageBonus / 100) + equipAtk) * (1 + bonusRenaissance());
         attackSpeed = 1000 * (1 - permSpeedBonus / 100);
         attackRange = 200 + permRangeBonus;
         bulletSpeed = 10;
@@ -9280,6 +9747,7 @@
 
         // UI - Afficher le hub
         gameHub.style.display = "flex";
+        initHubBackground();
         updateHubDisplay();
         hud.style.display = "none";
         statsDiv.style.display = "none";
@@ -9634,6 +10102,7 @@
             bossHealthBar.style.display = "none";
             bossNameDiv.style.display = "none";
             bossActive = false;
+            bossesKilledThisRun++;
             // Chance de drop d'item permanent aléatoire
             tryBossLootDrop();
           }
@@ -9883,6 +10352,18 @@
         logWaveSnapshot();
         window.dernierResultat = buildRunResult();
         envoyerScore(window.dernierResultat);
+
+        // Progression des defis de la semaine
+        preparerDefisSemaine();
+        progresserDefi("parties", 1, true);
+        progresserDefi("kills", kills, true);
+        progresserDefi("objets", itemsCollectedThisRun || 0, true);
+        progresserDefi("tourelles", turrets.length, true);
+        progresserDefi("boss", bossesKilledThisRun || 0, true);
+        progresserDefi("vague", currentWave, false);
+        progresserDefi("temps", gameTime, false);
+        progresserDefi("argent", totalMoneyEarned, false);
+        progresserDefi("niveau", playerLevel, false);
         stopBackgroundMusic();
         shopMenu.style.display = "none";
         combinedSkillShop.style.display = "none";
@@ -10060,6 +10541,7 @@
         // Afficher le hub
         updateHubDisplay();
         gameHub.style.display = "flex";
+        initHubBackground();
       }
 
       // Afficher popup +1G
