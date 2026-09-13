@@ -4134,11 +4134,69 @@
               <span class="hub-btn-icon">📊</span>
               <span class="hub-btn-text">Stats</span>
             </div>
+
+            <!-- Classement -->
+            <div class="hub-btn" onclick="openHubLeaderboard()">
+              <span class="hub-btn-icon">🏆</span>
+              <span class="hub-btn-text">Classement</span>
+            </div>
           </div>
         </div>
 
         <div class="hub-footer">
           <p class="hub-footer-text">🏰 Tower Defense Survie v1.0</p>
+        </div>
+
+        <!-- SUB-MENU: Classement -->
+        <div class="hub-submenu" id="hubLeaderboardMenu">
+          <div class="submenu-header">
+            <button class="submenu-back" onclick="closeHubSubmenu()">←</button>
+            <h2 class="submenu-title">🏆 Classement</h2>
+          </div>
+          <div class="submenu-content">
+            <div
+              style="
+                display: flex;
+                gap: 10px;
+                align-items: center;
+                margin-bottom: 15px;
+                flex-wrap: wrap;
+              "
+            >
+              <label style="color: #aaa; font-size: 14px">Ton pseudo :</label>
+              <input
+                id="pseudoInput"
+                maxlength="20"
+                placeholder="2 à 20 caractères"
+                style="
+                  flex: 1;
+                  min-width: 160px;
+                  padding: 10px;
+                  border-radius: 8px;
+                  border: 2px solid #2ecc71;
+                  background: #1a1a2e;
+                  color: #fff;
+                  font-size: 15px;
+                "
+              />
+              <button
+                onclick="savePseudo()"
+                style="
+                  padding: 10px 18px;
+                  border-radius: 8px;
+                  border: none;
+                  background: #2ecc71;
+                  color: #fff;
+                  font-weight: bold;
+                  cursor: pointer;
+                "
+              >
+                Enregistrer
+              </button>
+            </div>
+            <p id="pseudoMessage" style="font-size: 13px; margin-bottom: 10px"></p>
+            <div id="leaderboardList" style="color: #ddd"></div>
+          </div>
         </div>
 
         <!-- SUB-MENU: Armures -->
@@ -7953,6 +8011,128 @@
       }
 
       // Ouvrir les stats du hub
+      // ====== CLASSEMENT EN LIGNE (Supabase) ======
+      const SUPABASE_URL = "https://jbvtaclwcvtnmpkcvngi.supabase.co";
+      const SUPABASE_KEY = "sb_publishable_XupeObIa6Fei3o6DUJ3aLw_iN722Yxs";
+
+      function supabaseHeaders() {
+        return {
+          apikey: SUPABASE_KEY,
+          Authorization: "Bearer " + SUPABASE_KEY,
+          "Content-Type": "application/json",
+        };
+      }
+
+      function savePseudo() {
+        const input = document.getElementById("pseudoInput");
+        const msg = document.getElementById("pseudoMessage");
+        const pseudo = input.value.trim();
+
+        if (pseudo.length < 2 || pseudo.length > 20) {
+          msg.style.color = "#e74c3c";
+          msg.textContent = "Le pseudo doit faire entre 2 et 20 caractères.";
+          return;
+        }
+        permanentData.pseudo = pseudo;
+        savePermanentData();
+        msg.style.color = "#2ecc71";
+        msg.textContent = "Pseudo enregistré : " + pseudo;
+      }
+
+      async function openHubLeaderboard() {
+        closeHubSubmenu();
+        document.getElementById("hubLeaderboardMenu").style.display = "flex";
+        document.getElementById("pseudoInput").value = permanentData.pseudo || "";
+        document.getElementById("pseudoMessage").textContent = "";
+        await chargerClassement();
+      }
+
+      async function chargerClassement() {
+        const zone = document.getElementById("leaderboardList");
+        zone.innerHTML = "<p style='color:#888'>Chargement…</p>";
+
+        try {
+          const url =
+            SUPABASE_URL +
+            "/rest/v1/scores?select=pseudo,vague,temps,kills,cree_le" +
+            "&valide=eq.true&order=vague.desc,temps.desc&limit=20";
+          const r = await fetch(url, { headers: supabaseHeaders() });
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          const scores = await r.json();
+
+          if (!scores.length) {
+            zone.innerHTML =
+              "<p style='color:#888'>Aucun score pour le moment. Sois le premier !</p>";
+            return;
+          }
+
+          const medailles = ["🥇", "🥈", "🥉"];
+          let html =
+            "<table style='width:100%;border-collapse:collapse;font-size:14px'>" +
+            "<tr style='color:#2ecc71;text-align:left'>" +
+            "<th style='padding:8px'>#</th><th>Joueur</th>" +
+            "<th>Vague</th><th>Temps</th><th>Kills</th></tr>";
+
+          scores.forEach((sc, i) => {
+            const rang = medailles[i] || i + 1;
+            const fond = i < 3 ? "background:rgba(46,204,113,0.08);" : "";
+            const moi =
+              sc.pseudo === permanentData.pseudo ? "color:#f1c40f;font-weight:bold;" : "";
+            html +=
+              "<tr style='border-top:1px solid #333;" + fond + moi + "'>" +
+              "<td style='padding:8px'>" + rang + "</td>" +
+              "<td>" + echapper(sc.pseudo) + "</td>" +
+              "<td>" + sc.vague + "</td>" +
+              "<td>" + sc.temps + "s</td>" +
+              "<td>" + sc.kills + "</td></tr>";
+          });
+          zone.innerHTML = html + "</table>";
+        } catch (e) {
+          zone.innerHTML =
+            "<p style='color:#e74c3c'>Classement indisponible pour le moment.</p>";
+          console.error("Classement :", e);
+        }
+      }
+
+      // Empeche l'injection de HTML via un pseudo
+      function echapper(txt) {
+        const d = document.createElement("div");
+        d.textContent = txt;
+        return d.innerHTML;
+      }
+
+      // Envoi du score en fin de partie
+      async function envoyerScore(resultat) {
+        if (!permanentData.pseudo) return; // pas de pseudo, pas d'envoi
+        if (!resultat.valide) {
+          console.warn("Score non envoyé : anomalies détectées");
+          return;
+        }
+        if (resultat.vague < 1) return;
+
+        try {
+          await fetch(SUPABASE_URL + "/rest/v1/scores", {
+            method: "POST",
+            headers: supabaseHeaders(),
+            body: JSON.stringify({
+              pseudo: permanentData.pseudo,
+              vague: resultat.vague,
+              niveau: resultat.niveau,
+              kills: resultat.kills,
+              temps: resultat.temps,
+              argent_total: resultat.argentTotal,
+              zombies_apparus: resultat.zombiesApparus,
+              valide: resultat.valide,
+              anomalies: resultat.anomalies,
+              journal: resultat.journal,
+              version: resultat.version,
+            }),
+          });
+        } catch (e) {
+          console.error("Envoi du score :", e);
+        }
+      }
+
       function openHubStats() {
         closeHubSubmenu();
         updateHubDisplay();
@@ -9693,6 +9873,7 @@
         checkIntegrity();
         logWaveSnapshot();
         window.dernierResultat = buildRunResult();
+        envoyerScore(window.dernierResultat);
         stopBackgroundMusic();
         shopMenu.style.display = "none";
         combinedSkillShop.style.display = "none";
