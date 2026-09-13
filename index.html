@@ -8778,7 +8778,7 @@
         });
         maxHealth = 100 + permHealthBonus + equipHp;
         playerHealth = maxHealth;
-        playerMoney = startMoneyBonus;
+        playerMoney = 20 + startMoneyBonus; // 20$ offerts pour le premier achat
         damageReduction = permArmorBonus; // Appliquer l'armure de base
         totalMoneyEarned = 0;
         kills = 0;
@@ -8797,7 +8797,7 @@
         lightningChance = 0;
         lightningDamage = 30;
         extraBullets = 0;
-        damageReduction = 0;
+        damageReduction = permArmorBonus / 100; // armure permanente du hub
         vampirism = 0;
         currentWave = 0;
         waveEnemiesRemaining = 0;
@@ -9431,7 +9431,10 @@
                 ENEMY_DAMAGE_COOLDOWN / gameSpeed
             ) {
               // Appliquer la réduction de dégâts
-              const actualDamage = enemy.damage * (1 - damageReduction);
+              // Vagues 1 et 2 : dégâts divisés par 2 (période de démarrage)
+              const earlyWaveFactor = currentWave <= 2 ? 0.5 : 1;
+              const actualDamage =
+                enemy.damage * (1 - damageReduction) * earlyWaveFactor;
               playerHealth -= actualDamage;
               enemy.lastDamageTime = currentTime;
               playHurtSound();
