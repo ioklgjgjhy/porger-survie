@@ -4064,6 +4064,10 @@
       <div id="gameHub">
         <div class="hub-header">
           <div class="hub-currency">
+            <div class="currency-box coins">
+              <span class="currency-icon">💰</span>
+              <span class="currency-amount" id="hubCoins">0</span>
+            </div>
             <div class="currency-box gems">
               <span class="currency-icon">💎</span>
               <span class="currency-amount" id="hubGems">0</span>
@@ -4991,6 +4995,15 @@
       let damageReduction = 0;
       let vampirism = 0;
 
+      // === Competences permanentes achetees dans le hub (gemmes) ===
+      let hubRegenPerTick = 0; // PV rendus toutes les 5 secondes
+      let hubCritChance = 0; // probabilite de coup critique (x2 degats)
+      let hubLuckBonus = 1; // multiplicateur des chances de drop
+      let hubShieldAmount = 0; // PV de bouclier accordes toutes les 60s
+      let lastRegenTime = 0;
+      let lastShieldTime = 0;
+      let pendingHubTurrets = []; // types de tourelles offertes par le hub
+
       // Système de vagues
       let currentWave = 0;
       let waveEnemiesRemaining = 0;
@@ -5007,7 +5020,8 @@
       let droppedItems = [];
       let canDropHealItems = false;
       const HEAL_ITEM_DROP_CHANCE = 0.001; // 0.1% = 1/1000 - ULTRA LÉGENDAIRE!
-      const HEAL_ITEM_SPAWN_DELAY = 2000; // 2 secondes pour le test
+      const HEAL_ITEM_SPAWN_DELAY = 2000;
+      const EPIC_HEAL_DROP_CHANCE = 0.015; // 1,5% : soigne 50% des PV max // 2 secondes pour le test
 
       // Système de placement de tourelle
       let placingTurret = false;
@@ -5373,11 +5387,29 @@
       // Fonction pour créer un item de soin LÉGENDAIRE qui tombe
       function dropHealItem(x, y) {
         if (!canDropHealItems) return;
-        if (Math.random() > HEAL_ITEM_DROP_CHANCE) return; // 5% de chance - LÉGENDAIRE!
 
+        // Tirage LEGENDAIRE (rare) : item stocke, soin complet en boutique
+        if (Math.random() < HEAL_ITEM_DROP_CHANCE * hubLuckBonus) {
+          spawnHealItem(x, y, "legendary");
+          showLegendaryDropPopup(x, y);
+          return;
+        }
+
+        // Tirage EPIQUE : soigne 50% des PV max immediatement au ramassage
+        if (Math.random() < EPIC_HEAL_DROP_CHANCE * hubLuckBonus) {
+          spawnHealItem(x, y, "epic");
+        }
+      }
+
+      // Cree l'objet de soin sur le terrain
+      function spawnHealItem(x, y, rarity) {
         const item = document.createElement("div");
-        item.className = "heal-item legendary";
-        item.textContent = "💚";
+        item.className = "heal-item " + rarity;
+        item.textContent = rarity === "legendary" ? "💚" : "💜";
+        if (rarity === "epic") {
+          item.style.background =
+            "radial-gradient(circle, #b06fff, #8e44ad, #5b2c6f)";
+        }
         item.style.left = x + "px";
         item.style.top = y + "px";
         gameCanvas.appendChild(item);
@@ -5386,15 +5418,11 @@
           x: x,
           y: y,
           element: item,
-          speed: 0.5, // Vitesse de déplacement vers le joueur
+          speed: 0.5,
+          rarity: rarity,
         };
         droppedItems.push(itemData);
-
-        // Permettre de cliquer sur l'item pour le ramasser
         item.addEventListener("click", () => pickupHealItem(itemData));
-
-        // Afficher un message LÉGENDAIRE!
-        showLegendaryDropPopup(x, y);
       }
 
       // Chance de drop d'item permanent quand on tue un boss
@@ -5507,8 +5535,16 @@
 
       // Fonction pour ramasser un item de soin
       function pickupHealItem(itemData) {
-        healItems++;
-        updateHealItemsDisplay();
+        if (itemData.rarity === "epic") {
+          // Soin immediat de 50% des PV max
+          const heal = Math.round(maxHealth * 0.5);
+          playerHealth = Math.min(playerHealth + heal, maxHealth);
+          updateHealth();
+          showHealPopup(playerX, playerY, heal);
+        } else {
+          healItems++;
+          updateHealItemsDisplay();
+        }
         playPickupSound();
         itemData.element.remove();
         const index = droppedItems.indexOf(itemData);
@@ -5707,7 +5743,6 @@
       function createTurretAt(x, y) {
         const turret = document.createElement("div");
         turret.className = "turret";
-        turret.textContent = "🗼";
         turret.style.left = x + "px";
         turret.style.top = y + "px";
         gameCanvas.appendChild(turret);
@@ -5722,13 +5757,40 @@
         rangeCircle.style.top = y - turretAttackRange + "px";
         gameCanvas.appendChild(rangeCircle);
 
+        // Type de tourelle offert par le hub (sinon tourelle standard)
+        const hubType = pendingHubTurrets.length
+          ? pendingHubTurrets.shift()
+          : null;
+        const typeBonus = {
+          flame: { damage: 1.5, range: 1 },
+          laser: { damage: 1, range: 1.5 },
+          frost: { damage: 1, range: 1.2 },
+          poison: { damage: 1.2, range: 1 },
+        };
+        const bonus = typeBonus[hubType] || { damage: 1, range: 1 };
+        const typeIcons = {
+          flame: "🔥",
+          laser: "⚡",
+          frost: "❄️",
+          poison: "☠️",
+        };
+        turret.textContent = typeIcons[hubType] || "🗼";
+
+        // Ajuster le cercle de portee au type de tourelle
+        const finalRange = turretAttackRange * bonus.range;
+        rangeCircle.style.width = finalRange * 2 + "px";
+        rangeCircle.style.height = finalRange * 2 + "px";
+        rangeCircle.style.left = x - finalRange + "px";
+        rangeCircle.style.top = y - finalRange + "px";
+
         const turretData = {
           x: x,
           y: y,
-          damage: 15 + playerLevel * 2,
+          hubType: hubType,
+          damage: Math.round((15 + playerLevel * 2) * bonus.damage),
           attackSpeed: 1200,
           lastAttack: 0,
-          range: turretAttackRange,
+          range: turretAttackRange * bonus.range,
           element: turret,
           rangeElement: rangeCircle,
           rangeLevel: 0,
@@ -6590,6 +6652,8 @@
       // Mettre à jour l'affichage du hub
       function updateHubDisplay() {
         document.getElementById("hubGems").textContent = permanentData.gems;
+        const coinsEl = document.getElementById("hubCoins");
+        if (coinsEl) coinsEl.textContent = permanentData.coins || 0;
         document.getElementById("hubPlayerLevel").textContent =
           permanentData.playerLevel;
 
@@ -6713,7 +6777,7 @@
           id: "turret_flame",
           icon: "🔥",
           name: "Tourelle Flammes",
-          desc: "Tire des flammes qui brûlent les ennemis",
+          desc: "+50% dégâts et brûlure. 1 tourelle offerte par niveau",
           price: 50,
           maxLevel: 5,
           color: "#ff6600",
@@ -6723,7 +6787,7 @@
           id: "turret_laser",
           icon: "⚡",
           name: "Tourelle Laser",
-          desc: "Rayon laser continu à haute portée",
+          desc: "+50% de portée. 1 tourelle offerte par niveau",
           price: 75,
           maxLevel: 5,
           color: "#00ffff",
@@ -6733,7 +6797,7 @@
           id: "turret_frost",
           icon: "❄️",
           name: "Tourelle Givre",
-          desc: "Ralentit les ennemis touchés",
+          desc: "Ralentit de 40% pendant 2s. 1 tourelle par niveau",
           price: 60,
           maxLevel: 5,
           color: "#88ccff",
@@ -6743,7 +6807,7 @@
           id: "turret_poison",
           icon: "☠️",
           name: "Tourelle Poison",
-          desc: "Empoisonne les ennemis sur la durée",
+          desc: "+20% dégâts et poison. 1 tourelle offerte par niveau",
           price: 65,
           maxLevel: 5,
           color: "#88ff00",
@@ -6757,7 +6821,7 @@
           id: "skill_regen",
           icon: "💚",
           name: "Régénération",
-          desc: "+1 PV/5s par niveau",
+          desc: "Permanent : +1 PV toutes les 5s par niveau",
           price: 40,
           maxLevel: 5,
         },
@@ -6765,7 +6829,7 @@
           id: "skill_crit",
           icon: "💥",
           name: "Critique",
-          desc: "+5% chance de coup critique",
+          desc: "Permanent : +5% de coup critique (x2 dégâts)",
           price: 60,
           maxLevel: 5,
         },
@@ -6773,7 +6837,7 @@
           id: "skill_vampirism",
           icon: "🩸",
           name: "Vampirisme",
-          desc: "+2% vol de vie par niveau",
+          desc: "Permanent : +2% de vol de vie par niveau",
           price: 80,
           maxLevel: 3,
         },
@@ -6781,7 +6845,7 @@
           id: "skill_luck",
           icon: "🍀",
           name: "Chance",
-          desc: "+10% chance de drop par niveau",
+          desc: "Permanent : +10% de chance de drop par niveau",
           price: 45,
           maxLevel: 5,
         },
@@ -6789,7 +6853,7 @@
           id: "skill_shield",
           icon: "🛡️",
           name: "Bouclier Auto",
-          desc: "Bouclier de 20 PV toutes les 60s",
+          desc: "Permanent : +20 PV toutes les 60s par niveau",
           price: 100,
           maxLevel: 3,
         },
@@ -7296,8 +7360,8 @@
 
       // Calculer et afficher les stats totales
       function updateEquipmentStats() {
-        let totalAtk = 100; // Base
-        let totalHp = 500; // Base
+        let totalAtk = 25; // Base identique a celle du jeu
+        let totalHp = 100; // Base identique a celle du jeu
 
         // Ajouter les stats permanentes
         totalAtk += permanentData.permDamage || 0;
@@ -7569,7 +7633,7 @@
       // Tenter de drop un item quand un zombie meurt
       function tryEquipmentDrop(x, y, isBoss = false) {
         // Multiplicateur pour les boss
-        const bossMultiplier = isBoss ? 5 : 1;
+        const bossMultiplier = (isBoss ? 5 : 1) * hubLuckBonus;
 
         // Tester chaque niveau de rareté
         const rarities = ["legendary", "epic", "rare", "common"];
@@ -7863,17 +7927,9 @@
         }
 
         if (code === "Erwan") {
-          // Débloquer toutes les armures au niveau max
-          permanentData.shopLevels.helmet = 10;
-          permanentData.shopLevels.chestplate = 10;
-          permanentData.shopLevels.gloves = 10;
-          permanentData.shopLevels.boots = 10;
-          permanentData.shopLevels.ring = 10;
-          permanentData.shopLevels.amulet = 10;
-          permanentData.shopLevels.cape = 10;
-          permanentData.shopLevels.shield = 10;
-          permanentData.coins += 5000;
-          permanentData.gems += 500;
+          // Bonus unique : 500$ pour UNE seule partie + gemmes permanentes
+          permanentData.bonusStartMoney = 500;
+          permanentData.gems += 250;
 
           if (!permanentData.usedCodes) permanentData.usedCodes = [];
           permanentData.usedCodes.push(code);
@@ -7882,7 +7938,7 @@
 
           message.className = "code-message success";
           message.textContent =
-            "Toutes les armures MAX + 5000 coins + 500 gems!";
+            "💎 +250 gemmes et 💰 500$ pour ta prochaine partie !";
 
           setTimeout(() => {
             closeCodeMenu();
@@ -7926,24 +7982,13 @@
               "🔴 DERNIÈRE CHANCE! Toutes tes pièces, gemmes et améliorations seront perdues!"
             )
           ) {
+            // Effacer TOUTES les cles de sauvegarde du jeu
+            localStorage.removeItem("towerDefenseSave");
             localStorage.removeItem("zombieSurvivalProgress");
-            permanentData = {
-              coins: 0,
-              gems: 0,
-              shopLevels: {},
-              stats: {
-                gamesPlayed: 0,
-                totalKills: 0,
-                bestWave: 0,
-                totalTime: 0,
-                totalMoney: 0,
-              },
-              usedCodes: [],
-              settings: { sound: true, music: true, vibration: true },
-            };
-            updateHubDisplay();
-            closeHubSubmenu();
+            localStorage.removeItem("fpsSettingsConfirmed");
+            localStorage.removeItem("screenRefreshRate");
             alert("✅ Progression réinitialisée!");
+            location.reload();
           }
         }
       }
@@ -8046,53 +8091,25 @@
         permanentData.usedCodes = [];
       }
 
-      function applyPromoCode() {
-        const input = document.getElementById("promoCodeInput");
-        const message = document.getElementById("promoCodeMessage");
-        const code = input.value.toUpperCase().trim();
+      // (fonction applyPromoCode supprimee : doublon mort, jamais appele)
 
-        if (!code) {
-          message.style.color = "#e74c3c";
-          message.textContent = "Entre un code!";
-          return;
-        }
+      // ====== CONTACT ======
+      // Remplace cette adresse par ton adresse dediee au projet
+      const CONTACT_EMAIL = "";
 
-        // Vérifier si le code a déjà été utilisé
-        if (permanentData.usedCodes && permanentData.usedCodes.includes(code)) {
-          message.style.color = "#e74c3c";
-          message.textContent = "Code déjà utilisé!";
-          input.value = "";
-          return;
-        }
-
-        // Code Erwan : +1.5% argent sur les kills en jeu + 250 gemmes
-        if (code === "Erwan") {
-          // Bonus permanent de x1.015 sur l'argent gagné en tuant des zombies
-          permanentData.moneyMultiplier =
-            (permanentData.moneyMultiplier || 1) * 1.015;
-
-          // Donner 250 gemmes
-          permanentData.gems = (permanentData.gems || 0) + 250;
-
-          // Marquer comme utilisé
-          if (!permanentData.usedCodes) permanentData.usedCodes = [];
-          permanentData.usedCodes.push(code);
-
-          savePermanentData();
-          updateHubDisplay();
-
-          message.style.color = "#f1c40f";
-          message.textContent = "💎 +250 gemmes & +1.5% argent!";
-          showHubMessage(
-            "💎 CODE ERWAN: +250 gemmes & +1.5% argent sur les kills!"
+      function openContact() {
+        if (!CONTACT_EMAIL) {
+          alert(
+            "Adresse de contact non configurée.\n\n" +
+              "Ouvre le fichier index.html et renseigne CONTACT_EMAIL."
           );
           return;
         }
-
-        // Code invalide
-        message.style.color = "#e74c3c";
-        message.textContent = "Code invalide!";
+        const sujet = encodeURIComponent("Tower Defense Survie - Retour joueur");
+        window.location.href =
+          "mailto:" + CONTACT_EMAIL + "?subject=" + sujet;
       }
+
 
       // ========== SYSTÈME DE FRÉQUENCE ÉCRAN ==========
 
@@ -8181,7 +8198,7 @@
       resumeButton.addEventListener("click", togglePauseMenu);
       quitToMenuButton.addEventListener("click", () => {
         togglePauseMenu();
-        backToMenu();
+        backToHub();
       });
 
       musicToggle.addEventListener("click", () => {
@@ -8778,7 +8795,13 @@
         });
         maxHealth = 100 + permHealthBonus + equipHp;
         playerHealth = maxHealth;
-        playerMoney = 20 + startMoneyBonus; // 20$ offerts pour le premier achat
+        // 20$ de base + amulette + eventuel bonus de code promo (usage unique)
+        const codeBonus = permanentData.bonusStartMoney || 0;
+        playerMoney = 20 + startMoneyBonus + codeBonus;
+        if (codeBonus > 0) {
+          permanentData.bonusStartMoney = 0; // consomme : une seule partie
+          savePermanentData();
+        }
         damageReduction = permArmorBonus; // Appliquer l'armure de base
         totalMoneyEarned = 0;
         kills = 0;
@@ -8798,7 +8821,31 @@
         lightningDamage = 30;
         extraBullets = 0;
         damageReduction = permArmorBonus / 100; // armure permanente du hub
-        vampirism = 0;
+        // === Application des competences permanentes du hub ===
+        const sk = permanentData.skillLevels || {};
+        hubRegenPerTick = sk.skill_regen || 0; // +1 PV / 5s par niveau
+        hubCritChance = (sk.skill_crit || 0) * 0.05; // +5% par niveau
+        vampirism = (sk.skill_vampirism || 0) * 0.02; // +2% par niveau
+        hubLuckBonus = 1 + (sk.skill_luck || 0) * 0.1; // +10% drop par niveau
+        hubShieldAmount = (sk.skill_shield || 0) * 20; // 20 PV / 60s par niveau
+        lastRegenTime = Date.now();
+        lastShieldTime = Date.now();
+
+        // === Tourelles permanentes du hub ===
+        const tl = permanentData.turretLevels || {};
+        pendingHubTurrets = [];
+        const turretEffects = {
+          turret_flame: "flame",
+          turret_laser: "laser",
+          turret_frost: "frost",
+          turret_poison: "poison",
+        };
+        Object.keys(turretEffects).forEach((id) => {
+          for (let i = 0; i < (tl[id] || 0); i++) {
+            pendingHubTurrets.push(turretEffects[id]);
+          }
+        });
+        turretsOwned = pendingHubTurrets.length;
         currentWave = 0;
         waveEnemiesRemaining = 0;
         waveInProgress = false;
@@ -9133,13 +9180,51 @@
             );
             const damage = turret.damage || baseDamage * 0.5;
             createBullet(turret.x, turret.y, angle, damage);
-            
+
+            // Effets spéciaux des tourelles achetées dans le hub
+            if (turret.hubType === "frost") {
+              applyFrostEffect(closestEnemy);
+            } else if (turret.hubType === "poison" || turret.hubType === "flame") {
+              applyDamageOverTime(closestEnemy, damage * 0.3, 3);
+            }
+
             // Appliquer l'effet électricité aux tourelles aussi
             if (Math.random() < lightningChance) {
               triggerLightning(closestEnemy);
             }
           }
         });
+      }
+
+      // Ralentissement (tourelle Givre) : -40% de vitesse pendant 2s
+      function applyFrostEffect(enemy) {
+        if (!enemy || enemy.frozenUntil > Date.now()) return;
+        if (!enemy.baseSpeed) enemy.baseSpeed = enemy.speed;
+        enemy.speed = enemy.baseSpeed * 0.6;
+        enemy.frozenUntil = Date.now() + 2000;
+        enemy.element.classList.add("frozen");
+        setTimeout(() => {
+          if (enemy && enemy.element) {
+            enemy.speed = enemy.baseSpeed;
+            enemy.element.classList.remove("frozen");
+          }
+        }, 2000);
+      }
+
+      // Dégâts sur la durée (tourelles Flammes et Poison)
+      function applyDamageOverTime(enemy, tickDamage, ticks) {
+        if (!enemy) return;
+        let remaining = ticks;
+        const interval = setInterval(() => {
+          if (!gameActive || !enemy || enemy.health <= 0 || remaining <= 0) {
+            clearInterval(interval);
+            return;
+          }
+          if (!gamePaused) {
+            remaining--;
+            damageEnemy(enemy, tickDamage);
+          }
+        }, 700);
       }
 
       function updateOrbitals() {
@@ -9239,8 +9324,14 @@
       }
 
       function damageEnemy(enemy, damage) {
+        // Coup critique (competence permanente du hub)
+        let isCrit = false;
+        if (hubCritChance > 0 && Math.random() < hubCritChance) {
+          damage *= 2;
+          isCrit = true;
+        }
         enemy.health -= damage;
-        showDamageNumber(enemy.x, enemy.y, Math.round(damage));
+        showDamageNumber(enemy.x, enemy.y, Math.round(damage), isCrit);
 
         // Vampirisme - soigner le joueur
         if (vampirism > 0) {
@@ -9342,14 +9433,30 @@
         setTimeout(() => popup.remove(), 1500);
       }
 
-      function showDamageNumber(x, y, damage) {
+      function showDamageNumber(x, y, damage, isCrit) {
         const dmgNum = document.createElement("div");
         dmgNum.className = "damage-number";
-        dmgNum.textContent = damage;
+        dmgNum.textContent = isCrit ? "\u2728 " + damage : damage;
+        if (isCrit) {
+          dmgNum.style.color = "#f1c40f";
+          dmgNum.style.fontSize = "24px";
+          dmgNum.style.textShadow = "0 0 10px #f1c40f";
+        }
         dmgNum.style.left = x + "px";
         dmgNum.style.top = y + "px";
         gameCanvas.appendChild(dmgNum);
         setTimeout(() => dmgNum.remove(), 1000);
+      }
+
+      function showHealPopup(x, y, amount) {
+        const popup = document.createElement("div");
+        popup.className = "damage-number";
+        popup.textContent = "+" + Math.round(amount) + " PV";
+        popup.style.color = "#2ecc71";
+        popup.style.left = x + "px";
+        popup.style.top = y - 30 + "px";
+        gameCanvas.appendChild(popup);
+        setTimeout(() => popup.remove(), 1000);
       }
 
       function showMoneyPopup(x, y, amount) {
@@ -9371,6 +9478,24 @@
         if (!gamePaused) {
           // Vérifier les buffs zombies en attente
           applyPendingZombieBuffs();
+
+          // Régénération permanente (competence du hub) : +1 PV/5s par niveau
+          if (hubRegenPerTick > 0 && currentTime - lastRegenTime >= 5000) {
+            lastRegenTime = currentTime;
+            if (playerHealth < maxHealth) {
+              playerHealth = Math.min(playerHealth + hubRegenPerTick, maxHealth);
+              updateHealth();
+              showHealPopup(playerX, playerY, hubRegenPerTick);
+            }
+          }
+
+          // Bouclier automatique (competence du hub) : toutes les 60s
+          if (hubShieldAmount > 0 && currentTime - lastShieldTime >= 60000) {
+            lastShieldTime = currentTime;
+            playerHealth = Math.min(playerHealth + hubShieldAmount, maxHealth);
+            updateHealth();
+            showHealPopup(playerX, playerY, hubShieldAmount);
+          }
 
           // Attaque auto
           autoAttack();
@@ -9891,7 +10016,9 @@
     </script>
 
     <a
-      href="/cdn-cgi/l/email-protection#2c5e4d56495e495b414d5f4249586c4b414d4540024f4341"
+      href="#"
+      id="contactLink"
+      onclick="openContact(); return false;"
       style="
         position: fixed;
         bottom: 10px;
@@ -9901,7 +10028,7 @@
         text-decoration: none;
         z-index: 9999;
       "
-      >Erwan<
-    </a>
+      >✉️ Contact</a
+    >
   </body>
 </html>
