@@ -8352,17 +8352,26 @@
       const CONTACT_EMAIL = "";
 
       function openContact() {
-        if (!CONTACT_EMAIL) {
-          alert(
-            "Adresse de contact non configurée.\n\n" +
-              "Ouvre le fichier index.html et renseigne CONTACT_EMAIL."
-          );
-          return;
-        }
-        const sujet = encodeURIComponent("Tower Defense Survie - Retour joueur");
-        window.location.href =
-          "mailto:" + CONTACT_EMAIL + "?subject=" + sujet;
+        if (!CONTACT_EMAIL) return; // support pas encore disponible
+        const sujet = encodeURIComponent("Porger - Retour joueur");
+        window.location.href = "mailto:" + CONTACT_EMAIL + "?subject=" + sujet;
       }
+
+      // Adapte l'apparence du bouton selon qu'une adresse existe ou non
+      function initContactButton() {
+        const lien = document.getElementById("contactLink");
+        if (!lien) return;
+        if (CONTACT_EMAIL) {
+          lien.title = "Contacter le support";
+          lien.style.cursor = "pointer";
+          lien.style.color = "rgba(255, 255, 255, 0.5)";
+        } else {
+          lien.title = "Support indisponible pour le moment";
+          lien.style.cursor = "not-allowed";
+          lien.style.color = "rgba(150, 150, 150, 0.35)";
+        }
+      }
+      window.addEventListener("DOMContentLoaded", initContactButton);
 
 
       // ========== SYSTÈME DE FRÉQUENCE ÉCRAN ==========
