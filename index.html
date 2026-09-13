@@ -6555,7 +6555,31 @@
             scroll_universal: 0,
           };
         }
+        migrateItemUids();
         updateHubDisplay();
+      }
+
+      // Attribue un identifiant unique aux items des anciennes sauvegardes
+      let uidCounter = 0;
+      function generateUid() {
+        uidCounter++;
+        return Date.now() * 1000 + uidCounter;
+      }
+
+      function migrateItemUids() {
+        let changed = false;
+        const seen = new Set();
+        const fix = (item) => {
+          if (!item) return;
+          if (!item.uid || seen.has(item.uid)) {
+            item.uid = generateUid();
+            changed = true;
+          }
+          seen.add(item.uid);
+        };
+        permanentData.inventory.forEach(fix);
+        Object.values(permanentData.equipped).forEach(fix);
+        if (changed) savePermanentData();
       }
 
       // Sauvegarder les données
@@ -7507,10 +7531,10 @@
 
         // Donner quelques items de départ
         const starterItems = [
-          { ...EQUIPMENT_ITEMS.weapons[0], level: 1, uid: Date.now() + 1 }, // Arc simple
-          { ...EQUIPMENT_ITEMS.helmets[0], level: 1, uid: Date.now() + 2 }, // Casque cuir
-          { ...EQUIPMENT_ITEMS.armors[0], level: 1, uid: Date.now() + 3 }, // Plastron usé
-          { ...EQUIPMENT_ITEMS.rings[1], level: 1, uid: Date.now() + 4 }, // Anneau rare
+          { ...EQUIPMENT_ITEMS.weapons[0], level: 1, uid: generateUid() }, // Arc simple
+          { ...EQUIPMENT_ITEMS.helmets[0], level: 1, uid: generateUid() }, // Casque cuir
+          { ...EQUIPMENT_ITEMS.armors[0], level: 1, uid: generateUid() }, // Plastron usé
+          { ...EQUIPMENT_ITEMS.rings[1], level: 1, uid: generateUid() }, // Anneau rare
         ];
 
         starterItems.forEach((item) => {
@@ -7592,7 +7616,7 @@
         return {
           ...template,
           level: 1,
-          uid: Date.now() + Math.random(), // Identifiant unique
+          uid: generateUid(), // Identifiant unique
         };
       }
 
