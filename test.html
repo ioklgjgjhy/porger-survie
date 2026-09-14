@@ -8195,15 +8195,40 @@
         return h;
       }
 
-      // Lit le jeton renvoye par Google dans l'adresse de la page
+      // Lit les jetons renvoyes par Google dans l'adresse de la page
       function lireRetourGoogle() {
         if (!location.hash || location.hash.indexOf("access_token") === -1) return null;
         const p = new URLSearchParams(location.hash.substring(1));
         const token = p.get("access_token");
         if (!token) return null;
-        // Nettoyer l'adresse pour ne pas laisser le jeton visible
+        const refresh = p.get("refresh_token");
+        // Nettoyer l'adresse pour ne pas laisser les jetons visibles
         history.replaceState(null, "", location.pathname + location.search);
-        return token;
+        return { token: token, refresh: refresh };
+      }
+
+      // Le jeton d'acces expire au bout d'une heure : on le renouvelle
+      // avec le jeton de rafraichissement, sinon le joueur serait deconnecte.
+      async function renouvelerJeton() {
+        let refresh = null;
+        try {
+          refresh = localStorage.getItem("porgerRefresh");
+        } catch (e) {}
+        if (!refresh) return null;
+
+        const r = await fetch(
+          SUPABASE_URL + "/auth/v1/token?grant_type=refresh_token",
+          {
+            method: "POST",
+            headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+            body: JSON.stringify({ refresh_token: refresh }),
+          }
+        );
+        if (!r.ok) return null;
+        const d = await r.json();
+        if (!d.access_token) return null;
+        memoriserSession(d.access_token, d.refresh_token);
+        return d.access_token;
       }
 
       async function recupererUtilisateur(token) {
@@ -8215,16 +8240,20 @@
         return { token: token, id: u.id, email: u.email };
       }
 
-      function memoriserSession(token) {
+      function memoriserSession(token, refresh) {
         try {
           localStorage.setItem("porgerSession", token);
+          if (refresh) localStorage.setItem("porgerRefresh", refresh);
         } catch (e) {}
       }
 
       async function initSession() {
-        let token = lireRetourGoogle();
-        if (token) memoriserSession(token);
-        if (!token) {
+        const retour = lireRetourGoogle();
+        let token = null;
+        if (retour) {
+          token = retour.token;
+          memoriserSession(retour.token, retour.refresh);
+        } else {
           try {
             token = localStorage.getItem("porgerSession");
           } catch (e) {}
@@ -8233,13 +8262,28 @@
 
         try {
           sessionUtilisateur = await recupererUtilisateur(token);
-          await chargerProfil();
         } catch (e) {
-          // Jeton expire : on repart en mode invite, sans bloquer le jeu
-          sessionUtilisateur = null;
+          // Jeton expire : on tente de le renouveler avant d'abandonner
+          try {
+            const neuf = await renouvelerJeton();
+            if (neuf) {
+              sessionUtilisateur = await recupererUtilisateur(neuf);
+            }
+          } catch (e2) {}
+        }
+
+        if (!sessionUtilisateur) {
+          // Session definitivement perdue : mode invite, le jeu reste jouable
           try {
             localStorage.removeItem("porgerSession");
-          } catch (e2) {}
+            localStorage.removeItem("porgerRefresh");
+          } catch (e3) {}
+        } else {
+          try {
+            await chargerProfil();
+          } catch (e4) {
+            console.error("profil :", e4);
+          }
         }
         majAffichageCompte();
         afficherBadgeDev();
@@ -8258,6 +8302,7 @@
         sessionUtilisateur = null;
         try {
           localStorage.removeItem("porgerSession");
+          localStorage.removeItem("porgerRefresh");
         } catch (e) {}
         majAffichageCompte();
         showHubMessage("Déconnecté. Ta progression reste sur cet appareil.");
