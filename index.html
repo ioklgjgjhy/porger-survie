@@ -8821,9 +8821,19 @@
       }
 
       // Adapte l'apparence du bouton selon qu'une adresse existe ou non
+      // Masque le bouton pendant la partie, l'affiche dans les menus
+      function majVisibiliteContact() {
+        const lien = document.getElementById("contactLink");
+        if (!lien) return;
+        const enJeu =
+          typeof gameStarted !== "undefined" && gameStarted && !pauseMenuOpen;
+        lien.style.display = enJeu ? "none" : "block";
+      }
+
       function initContactButton() {
         const lien = document.getElementById("contactLink");
         if (!lien) return;
+        setInterval(majVisibiliteContact, 500);
         if (CONTACT_EMAIL) {
           lien.title = "Contacter le support";
           lien.style.cursor = "pointer";
@@ -9598,7 +9608,7 @@
         enemies = [];
         bullets = [];
         turrets = [];
-        turretsOwned = 0;
+        turretsOwned = pendingHubTurrets.length; // tourelles offertes par le hub
         orbitals = [];
         healItems = 0;
         droppedItems = [];
@@ -10217,15 +10227,18 @@
           // Vérifier les buffs zombies en attente
           applyPendingZombieBuffs();
 
+          // Horloge propre a ce bloc (currentTime est redeclare plus bas)
+          const maintenant = Date.now();
+
           // Controle d'integrite toutes les 2 secondes
-          if (currentTime - lastIntegrityCheck >= 2000) {
-            lastIntegrityCheck = currentTime;
+          if (maintenant - lastIntegrityCheck >= 2000) {
+            lastIntegrityCheck = maintenant;
             checkIntegrity();
           }
 
           // Régénération permanente (competence du hub) : +1 PV/5s par niveau
-          if (hubRegenPerTick > 0 && currentTime - lastRegenTime >= 5000) {
-            lastRegenTime = currentTime;
+          if (hubRegenPerTick > 0 && maintenant - lastRegenTime >= 5000) {
+            lastRegenTime = maintenant;
             if (playerHealth < maxHealth) {
               playerHealth = Math.min(playerHealth + hubRegenPerTick, maxHealth);
               updateHealth();
@@ -10234,8 +10247,8 @@
           }
 
           // Bouclier automatique (competence du hub) : toutes les 60s
-          if (hubShieldAmount > 0 && currentTime - lastShieldTime >= 60000) {
-            lastShieldTime = currentTime;
+          if (hubShieldAmount > 0 && maintenant - lastShieldTime >= 60000) {
+            lastShieldTime = maintenant;
             playerHealth = Math.min(playerHealth + hubShieldAmount, maxHealth);
             updateHealth();
             showHealPopup(playerX, playerY, hubShieldAmount);
