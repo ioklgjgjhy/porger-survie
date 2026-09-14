@@ -8944,190 +8944,105 @@
       // tout passe par un panneau visuel.
       let invincibiliteDev = false;
 
-      // Valeurs reglables du panneau (memorisees entre deux ouvertures)
-      const REGLAGES_DEV = {
-        vagues: 10,
-        pieces: 10000,
-        gemmes: 500,
-        niveaux: 5,
-        degats: 50,
-        portee: 100,
-      };
-
-      function ajusterReglage(cle, delta, min, max) {
-        REGLAGES_DEV[cle] = Math.max(min, Math.min(max, REGLAGES_DEV[cle] + delta));
-        rendrePanneauDev();
-      }
-
-      function definirReglage(cle, valeur) {
-        REGLAGES_DEV[cle] = parseInt(valeur, 10) || 0;
-      }
-
-      // ---- Actions sur les vagues ----
-      function devChangerVague(delta) {
-        if (!gameActive) return messageDev("Lance une partie d'abord");
-        const cible = Math.max(1, currentWave + delta);
-        devAllerVague(cible);
-      }
-
-      function devAllerVague(cible) {
-        if (!gameActive) return messageDev("Lance une partie d'abord");
-        if (spawnTimerId) clearTimeout(spawnTimerId);
-        enemies.forEach((en) => en.element.remove());
-        enemies = [];
-        waveEnemiesRemaining = 0;
-        waveInProgress = false;
-        bossActive = false;
-        bossHealthBar.style.display = "none";
-        bossNameDiv.style.display = "none";
-        currentWave = Math.max(0, cible - 1);
-        gamePaused = false;
-        fermerPanneauDev();
-        startWave();
-        messageDev("Vague " + cible);
-      }
-
-      function devDonnerRessources() {
-        permanentData.coins += REGLAGES_DEV.pieces;
-        permanentData.gems += REGLAGES_DEV.gemmes;
-        savePermanentData();
-        updateHubDisplay();
-        messageDev(
-          "+" + REGLAGES_DEV.pieces + " pieces, +" + REGLAGES_DEV.gemmes + " gemmes"
-        );
-      }
-
-      function devNiveaux() {
-        if (!gameActive) return messageDev("Lance une partie d'abord");
-        playerLevel += REGLAGES_DEV.niveaux;
-        messageDev("Niveau " + playerLevel);
-      }
-
-      function devDegats() {
-        if (!gameActive) return messageDev("Lance une partie d'abord");
-        baseDamage += REGLAGES_DEV.degats;
-        messageDev("Degats : " + Math.round(baseDamage));
-      }
-
-      function devPortee() {
-        if (!gameActive) return messageDev("Lance une partie d'abord");
-        attackRange += REGLAGES_DEV.portee;
-        messageDev("Portee : " + Math.round(attackRange));
-      }
-
-      function devToutTuer() {
-        if (!gameActive) return messageDev("Lance une partie d'abord");
-        const nb = enemies.length;
-        [...enemies].forEach((en) => damageEnemy(en, 999999));
-        messageDev(nb + " zombies elimines");
-      }
-
-      function devInvincible() {
-        invincibiliteDev = !invincibiliteDev;
-        messageDev(invincibiliteDev ? "Invincibilite ON" : "Invincibilite OFF");
-        rendrePanneauDev();
-      }
-
-      function devSoin() {
-        if (!gameActive) return messageDev("Lance une partie d'abord");
-        playerHealth = maxHealth;
-        updateHealth();
-        messageDev("PV restaures");
-      }
-
-      function devArgentPartie() {
-        if (!gameActive) return messageDev("Lance une partie d'abord");
-        playerMoney += 5000;
-        updateMoney();
-        messageDev("+5000 $ en partie");
-      }
-
-      function devTuerJoueur() {
-        if (!gameActive) return messageDev("Lance une partie d'abord");
-        fermerPanneauDev();
-        playerHealth = 0;
-        updateHealth();
-        endGame();
-      }
-
-      function devVitesse(v) {
-        gameSpeed = v;
-        messageDev("Vitesse x" + v);
-        rendrePanneauDev();
-      }
+      const ACTIONS_DEV = [
+        {
+          icone: "\u23e9",
+          titre: "Vague 50",
+          detail: "Saute directement au boss",
+          couleur: "#e67e22",
+          action: () => {
+            if (!gameActive) return messageDev("Lance une partie d'abord");
+            if (spawnTimerId) clearTimeout(spawnTimerId);
+            enemies.forEach((en) => en.element.remove());
+            enemies = [];
+            waveEnemiesRemaining = 0;
+            waveInProgress = false;
+            bossActive = false;
+            playerLevel = Math.max(playerLevel, 25);
+            currentWave = 49;
+            startWave();
+            messageDev("Passage a la vague 50");
+          },
+        },
+        {
+          icone: "\ud83d\udca5",
+          titre: "Tout tuer",
+          detail: "Elimine les zombies a l'ecran",
+          couleur: "#c0392b",
+          action: () => {
+            if (!gameActive) return messageDev("Lance une partie d'abord");
+            const nb = enemies.length;
+            [...enemies].forEach((en) => damageEnemy(en, 999999));
+            messageDev(nb + " zombies elimines");
+          },
+        },
+        {
+          icone: "\ud83d\udee1\ufe0f",
+          titre: "Invincible",
+          detail: "Active ou desactive les degats",
+          couleur: "#2980b9",
+          action: () => {
+            invincibiliteDev = !invincibiliteDev;
+            messageDev(
+              invincibiliteDev ? "Invincibilite activee" : "Invincibilite desactivee"
+            );
+            rendrePanneauDev();
+          },
+          etat: () => (invincibiliteDev ? "ON" : "OFF"),
+        },
+        {
+          icone: "\ud83d\udcb0",
+          titre: "Ressources",
+          detail: "+10 000 pieces, +500 gemmes",
+          couleur: "#f1c40f",
+          action: () => {
+            permanentData.coins += 10000;
+            permanentData.gems += 500;
+            savePermanentData();
+            updateHubDisplay();
+            messageDev("+10 000 pieces et +500 gemmes");
+          },
+        },
+        {
+          icone: "\u2b06\ufe0f",
+          titre: "Niveau +5",
+          detail: "Monte le niveau du joueur",
+          couleur: "#9b59b6",
+          action: () => {
+            if (!gameActive) return messageDev("Lance une partie d'abord");
+            playerLevel += 5;
+            messageDev("Niveau " + playerLevel);
+          },
+        },
+        {
+          icone: "\u2764\ufe0f",
+          titre: "Soin complet",
+          detail: "Remet les PV au maximum",
+          couleur: "#27ae60",
+          action: () => {
+            if (!gameActive) return messageDev("Lance une partie d'abord");
+            playerHealth = maxHealth;
+            updateHealth();
+            messageDev("PV restaures");
+          },
+        },
+      ];
 
       function ouvrirPanneauDev() {
         if (!estDeveloppeur()) return;
         let f = document.getElementById("panneauDev");
         if (f && f.style.display === "flex") {
-          fermerPanneauDev();
+          f.style.display = "none";
           return;
         }
-        // Fermer les autres interfaces pour eviter la superposition
-        if (typeof shopOpen !== "undefined" && shopOpen) toggleShop();
-        if (typeof combinedSkillShopOpen !== "undefined" && combinedSkillShopOpen)
-          toggleCombinedSkillShop();
+        fermerAutresInterfaces("dev");
         rendrePanneauDev();
         document.getElementById("panneauDev").style.display = "flex";
-        // Le jeu se met en pause pendant la consultation du panneau
-        if (gameActive) gamePaused = true;
       }
 
       function fermerPanneauDev() {
         const f = document.getElementById("panneauDev");
-        if (!f || f.style.display === "none") return;
-        f.style.display = "none";
-        // Reprendre le jeu si aucune autre interface n'est ouverte
-        if (gameActive) {
-          gamePaused =
-            (typeof shopOpen !== "undefined" && shopOpen) ||
-            (typeof combinedSkillShopOpen !== "undefined" && combinedSkillShopOpen) ||
-            (typeof pauseMenuOpen !== "undefined" && pauseMenuOpen);
-        }
-      }
-
-      function panneauDevOuvert() {
-        const f = document.getElementById("panneauDev");
-        return !!f && f.style.display === "flex";
-      }
-
-      // Bloc reglable : moins / valeur saisissable / plus / bouton d'action
-      function ligneReglage(cle, libelle, pas, min, max, bouton, fonction, couleur) {
-        return (
-          "<div style='background:rgba(0,0,0,.25);border-radius:9px;padding:9px 11px'>" +
-          "<div style='font-size:11px;color:#8a8aa8;margin-bottom:6px;" +
-          "text-transform:uppercase;letter-spacing:.5px'>" + libelle + "</div>" +
-          "<div style='display:flex;align-items:center;gap:6px'>" +
-          "<button onclick='ajusterReglage(\"" + cle + "\"," + -pas + "," + min + "," + max + ")' " +
-          "style='width:27px;height:27px;border:none;border-radius:6px;" +
-          "background:#33334d;color:#fff;font-size:16px;cursor:pointer;" +
-          "flex-shrink:0;line-height:1'>\u2212</button>" +
-          "<input type='number' value='" + REGLAGES_DEV[cle] + "' " +
-          "onchange='definirReglage(\"" + cle + "\",this.value)' " +
-          "style='flex:1;min-width:0;background:#0d0d1c;border:1px solid #33334d;" +
-          "border-radius:6px;color:#fff;padding:5px;text-align:center;" +
-          "font-size:13px;font-weight:bold'>" +
-          "<button onclick='ajusterReglage(\"" + cle + "\"," + pas + "," + min + "," + max + ")' " +
-          "style='width:27px;height:27px;border:none;border-radius:6px;" +
-          "background:#33334d;color:#fff;font-size:16px;cursor:pointer;" +
-          "flex-shrink:0;line-height:1'>+</button>" +
-          "<button onclick='" + fonction + "' " +
-          "style='background:" + couleur + ";border:none;border-radius:6px;" +
-          "color:#111;font-weight:bold;padding:5px 11px;cursor:pointer;" +
-          "font-size:12px;flex-shrink:0'>" + bouton + "</button>" +
-          "</div></div>"
-        );
-      }
-
-      function boutonDev(icone, texte, fonction, couleur, actif) {
-        return (
-          "<button onclick='" + fonction + "' style='display:flex;align-items:center;" +
-          "gap:7px;background:" + (actif ? couleur : "rgba(0,0,0,.25)") + ";" +
-          "border:1px solid " + couleur + ";border-radius:8px;padding:9px 10px;" +
-          "cursor:pointer;color:" + (actif ? "#111" : "#ddd") + ";font-size:12px;" +
-          "font-weight:bold;text-align:left'>" +
-          "<span style='font-size:15px'>" + icone + "</span>" + texte + "</button>"
-        );
+        if (f) f.style.display = "none";
       }
 
       function rendrePanneauDev() {
@@ -9136,88 +9051,44 @@
           f = document.createElement("div");
           f.id = "panneauDev";
           f.style.cssText =
-            "position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:99998;" +
-            "display:none;align-items:center;justify-content:center;padding:16px;" +
-            "overflow-y:auto";
+            "position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:99998;" +
+            "display:none;align-items:center;justify-content:center;padding:20px";
           f.addEventListener("click", (e) => {
             if (e.target === f) fermerPanneauDev();
           });
           document.body.appendChild(f);
         }
 
-        const enPartie = typeof gameActive !== "undefined" && gameActive;
-
-        // --- Section vagues ---
-        let vagues =
-          "<div style='display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px'>" +
-          boutonDev("\u23ea", "Reculer d'une vague", "devChangerVague(-1)", "#e67e22") +
-          boutonDev("\u23e9", "Avancer d'une vague", "devChangerVague(1)", "#e67e22") +
-          "</div>" +
-          ligneReglage("vagues", "Aller a la vague", 5, 1, 500, "Aller",
-            "devAllerVague(REGLAGES_DEV.vagues)", "#e67e22");
-
-        // --- Section combat ---
-        let combat =
-          "<div style='display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px'>" +
-          boutonDev("\ud83d\udca5", "Tout tuer", "devToutTuer()", "#c0392b") +
-          boutonDev("\ud83d\udee1\ufe0f",
-            "Invincible " + (invincibiliteDev ? "ON" : "OFF"),
-            "devInvincible()", "#2980b9", invincibiliteDev) +
-          boutonDev("\u2764\ufe0f", "Soin complet", "devSoin()", "#27ae60") +
-          boutonDev("\u2620\ufe0f", "Terminer la partie", "devTuerJoueur()", "#7f8c8d") +
-          "</div>" +
-          ligneReglage("degats", "Degats du joueur", 25, 5, 5000, "Ajouter",
-            "devDegats()", "#e74c3c") +
-          "<div style='height:8px'></div>" +
-          ligneReglage("portee", "Portee de tir", 50, 10, 2000, "Ajouter",
-            "devPortee()", "#3498db");
-
-        // --- Section ressources ---
-        let ressources =
-          ligneReglage("pieces", "Pieces du hub", 1000, 100, 999999, "Donner",
-            "devDonnerRessources()", "#f1c40f") +
-          "<div style='height:8px'></div>" +
-          ligneReglage("gemmes", "Gemmes du hub", 100, 10, 99999, "Donner",
-            "devDonnerRessources()", "#9b59b6") +
-          "<div style='height:8px'></div>" +
-          ligneReglage("niveaux", "Niveaux du joueur", 1, 1, 100, "Monter",
-            "devNiveaux()", "#1abc9c") +
-          "<div style='height:8px'></div>" +
-          "<div style='display:grid;grid-template-columns:1fr;gap:8px'>" +
-          boutonDev("\ud83d\udcb5", "+5000 $ dans la partie", "devArgentPartie()", "#f39c12") +
-          "</div>";
-
-        // --- Vitesse du jeu ---
-        let vitesse =
-          "<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:7px'>";
-        [1, 2, 3, 5].forEach((v) => {
-          vitesse += boutonDev("", "x" + v, "devVitesse(" + v + ")", "#8e44ad",
-            typeof gameSpeed !== "undefined" && gameSpeed === v);
+        let cartes = "";
+        ACTIONS_DEV.forEach((a, i) => {
+          const etat = a.etat ? a.etat() : null;
+          cartes +=
+            "<button onclick='ACTIONS_DEV[" + i + "].action()' " +
+            "style='display:flex;flex-direction:column;align-items:center;gap:5px;" +
+            "background:linear-gradient(145deg,rgba(40,40,70,.95),rgba(22,22,45,.95));" +
+            "border:2px solid " + a.couleur + ";border-radius:13px;padding:15px 10px;" +
+            "cursor:pointer;transition:transform .15s;color:#fff' " +
+            "onmouseover='this.style.transform=\"translateY(-3px)\"' " +
+            "onmouseout='this.style.transform=\"none\"'>" +
+            "<span style='font-size:27px'>" + a.icone + "</span>" +
+            "<span style='font-weight:bold;font-size:14px;color:" + a.couleur + "'>" +
+            a.titre + (etat ? " \u00b7 " + etat : "") + "</span>" +
+            "<span style='font-size:11px;color:#999;text-align:center;line-height:1.3'>" +
+            a.detail + "</span></button>";
         });
-        vitesse += "</div>";
-
-        const titreSection = (t) =>
-          "<div style='color:#8e44ad;font-size:12px;font-weight:bold;margin:14px 0 8px;" +
-          "text-transform:uppercase;letter-spacing:1px'>" + t + "</div>";
 
         f.innerHTML =
-          "<div style='background:#0f0f22;border:2px solid #8e44ad;border-radius:16px;" +
-          "padding:20px;max-width:640px;width:100%;max-height:90vh;overflow-y:auto;" +
-          "box-shadow:0 14px 50px rgba(0,0,0,.7)'>" +
-          "<div style='display:flex;align-items:center;gap:10px;margin-bottom:3px'>" +
-          "<span style='font-size:21px'>\u2699\ufe0f</span>" +
-          "<h2 style='color:#8e44ad;font-size:18px;margin:0;flex:1'>Panneau développeur</h2>" +
+          "<div style='background:#12122a;border:2px solid #8e44ad;border-radius:17px;" +
+          "padding:22px;max-width:540px;width:100%;box-shadow:0 12px 45px rgba(0,0,0,.6)'>" +
+          "<div style='display:flex;align-items:center;gap:10px;margin-bottom:5px'>" +
+          "<span style='font-size:22px'>\u2699\ufe0f</span>" +
+          "<h2 style='color:#8e44ad;font-size:19px;margin:0;flex:1'>Panneau développeur</h2>" +
           "<button onclick='fermerPanneauDev()' style='background:none;border:none;" +
-          "color:#888;font-size:26px;cursor:pointer;line-height:1'>&times;</button></div>" +
-          "<p style='color:#5a5a7a;font-size:11px;margin-bottom:4px'>" +
-          "Touche I ou \u2699\ufe0f pour ouvrir · Échap pour fermer" +
-          (enPartie ? "" : " · <span style='color:#e67e22'>hors partie, certaines actions sont inactives</span>") +
-          "</p>" +
-          titreSection("Vagues") + vagues +
-          titreSection("Combat") + combat +
-          titreSection("Ressources") + ressources +
-          titreSection("Vitesse du jeu") + vitesse +
-          "</div>";
+          "color:#888;font-size:25px;cursor:pointer;line-height:1'>&times;</button></div>" +
+          "<p style='color:#666;font-size:12px;margin-bottom:16px'>" +
+          "Touche I pour ouvrir ou fermer</p>" +
+          "<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));" +
+          "gap:11px'>" + cartes + "</div></div>";
       }
 
       function initRaccourcisDev() {
@@ -9789,10 +9660,6 @@
 
         // Échap pour la pause (fonctionne même si pas en jeu actif pour fermer le menu pause)
         if (e.key === "Escape") {
-          if (panneauDevOuvert()) {
-            fermerPanneauDev();
-            return;
-          }
           if (gameActive) {
             // Fermer les boutiques si ouvertes
             if (shopOpen) toggleShop();
@@ -9806,13 +9673,11 @@
 
         if (key === "e") {
           if (pauseMenuOpen || placingTurret) return;
-          fermerPanneauDev();
           if (combinedSkillShopOpen) toggleCombinedSkillShop();
           toggleShop();
         }
         if (key === "r") {
           if (pauseMenuOpen || placingTurret) return;
-          fermerPanneauDev();
           if (shopOpen) toggleShop();
           toggleCombinedSkillShop();
         }
@@ -9829,20 +9694,41 @@
 
       // Fonction toggle menu pause
       function togglePauseMenu() {
-        fermerPanneauDev();
-        pauseMenuOpen = !pauseMenuOpen;
+        const ouvrir = !pauseMenuOpen;
+        if (ouvrir) fermerAutresInterfaces("pause");
+        pauseMenuOpen = ouvrir;
         pauseMenu.style.display = pauseMenuOpen ? "flex" : "none";
         gamePaused = pauseMenuOpen || shopOpen || combinedSkillShopOpen;
       }
 
       // Fonctions de la boutique
       function toggleShop() {
-        shopOpen = !shopOpen;
+        const ouvrir = !shopOpen;
+        if (ouvrir) fermerAutresInterfaces("boutique");
+        shopOpen = ouvrir;
         shopMenu.style.display = shopOpen ? "block" : "none";
-        gamePaused = shopOpen;
+        gamePaused = shopOpen || combinedSkillShopOpen || pauseMenuOpen;
         if (shopOpen) {
           renderShop();
         }
+      }
+
+      // Une seule interface visible a la fois : on ferme les autres
+      function fermerAutresInterfaces(sauf) {
+        if (sauf !== "dev") fermerPanneauDev();
+        if (sauf !== "boutique" && shopOpen) {
+          shopOpen = false;
+          shopMenu.style.display = "none";
+        }
+        if (sauf !== "competences" && combinedSkillShopOpen) {
+          combinedSkillShopOpen = false;
+          combinedSkillShop.style.display = "none";
+        }
+        if (sauf !== "pause" && pauseMenuOpen) {
+          pauseMenuOpen = false;
+          pauseMenu.style.display = "none";
+        }
+        gamePaused = shopOpen || combinedSkillShopOpen || pauseMenuOpen;
       }
 
       function getItemPrice(item) {
@@ -9952,11 +9838,13 @@
 
       // Fonctions de la boutique combinée de compétences
       function toggleCombinedSkillShop() {
-        combinedSkillShopOpen = !combinedSkillShopOpen;
+        const ouvrir = !combinedSkillShopOpen;
+        if (ouvrir) fermerAutresInterfaces("competences");
+        combinedSkillShopOpen = ouvrir;
         combinedSkillShop.style.display = combinedSkillShopOpen
           ? "block"
           : "none";
-        gamePaused = combinedSkillShopOpen || shopOpen;
+        gamePaused = combinedSkillShopOpen || shopOpen || pauseMenuOpen;
         if (combinedSkillShopOpen) {
           renderCombinedSkillShop();
         }
