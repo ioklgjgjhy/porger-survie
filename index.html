@@ -6229,27 +6229,29 @@
         {
           id: "attackSpeed",
           icon: "⚡",
-          name: "+20% Vitesse",
+          name: "+15% Vitesse",
           desc: "Tire plus rapidement",
           basePrice: 30,
-          priceMultiplier: 1.5,
-          maxLevel: 8,
+          priceMultiplier: 1.6,
+          maxLevel: 6,
           effect: () => {
-            attackSpeed *= 0.8;
+            // Plancher a 250 ms : au-dela le jeu n'a plus aucun enjeu
+            attackSpeed = Math.max(250, attackSpeed * 0.85);
             addZombieBuff(0, 0);
           },
         },
         {
           id: "range",
           icon: "🎯",
-          name: "+30% Portée",
-          desc: "Tire plus loin (dézoom auto)",
+          name: "+20% Portée",
+          desc: "Tire plus loin",
           basePrice: 25,
-          priceMultiplier: 1.3,
-          maxLevel: 15,
+          priceMultiplier: 1.45,
+          maxLevel: 8,
           effect: () => {
-            // Plus de limite ! Le jeu dézoomera automatiquement si nécessaire
-            attackRange = attackRange * 1.3;
+            // Plafond a 620 : sans limite, plus aucun zombie n'arrivait
+            // jusqu'au joueur et la partie perdait tout enjeu
+            attackRange = Math.min(620, attackRange * 1.2);
             updateRangeCircle();
             addZombieBuff(0, 0);
           },
