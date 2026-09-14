@@ -1345,43 +1345,6 @@
 
       /* ENNEMIS - Style 3D */
 
-      /* ===== SPRITES DE ZOMBIES (pack Dungeon Gathering, SnowHex) =====
-         Feuille 256x128 : 8 images de 32x32 sur 4 lignes.
-         Ligne 0 bas, 1 droite, 2 haut, 3 gauche. */
-      .enemy.sprite {
-        background-image: url("data:image/png;base64,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");
-        background-repeat: no-repeat;
-        background-size: 800% 400%;
-        border-radius: 0;
-        transform: none;
-        image-rendering: pixelated;
-        box-shadow: none;
-        filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.55));
-        animation: marcheZombie 0.8s steps(8) infinite;
-      }
-
-      @keyframes marcheZombie {
-        from { background-position-x: 0%; }
-        to { background-position-x: -800%; }
-      }
-
-      /* Direction : on change la ligne de la feuille */
-      .enemy.sprite.dir-bas { background-position-y: 0%; }
-      .enemy.sprite.dir-droite { background-position-y: 33.333%; }
-      .enemy.sprite.dir-haut { background-position-y: 66.666%; }
-      .enemy.sprite.dir-gauche { background-position-y: 100%; }
-
-      /* Teintes par type, sur la meme feuille */
-      .enemy.sprite.fast { filter: drop-shadow(0 3px 4px rgba(0,0,0,.55)) hue-rotate(-35deg) saturate(1.5); }
-      .enemy.sprite.tank { filter: drop-shadow(0 3px 5px rgba(0,0,0,.6)) hue-rotate(190deg) brightness(0.9); }
-      .enemy.sprite.boss { filter: drop-shadow(0 4px 7px rgba(0,0,0,.7)) hue-rotate(265deg) saturate(1.7); }
-
-      /* Le zombie ralenti par la tourelle Givre */
-      .enemy.sprite.frozen {
-        filter: drop-shadow(0 3px 4px rgba(0,0,0,.55)) hue-rotate(150deg) brightness(1.3);
-        animation-duration: 1.6s;
-      }
-
       .enemy {
         position: absolute;
         width: 40px;
@@ -2758,6 +2721,43 @@
       .enemy.frozen {
         filter: brightness(1.5) hue-rotate(180deg);
         animation: freeze-pulse 0.3s infinite alternate;
+      }
+
+      /* ===== SPRITES DE ZOMBIES (pack Dungeon Gathering, SnowHex) =====
+         Feuille 256x128 : 8 images de 32x32 sur 4 lignes.
+         Ligne 0 bas, 1 droite, 2 haut, 3 gauche. */
+      .enemy.sprite {
+        background-image: url("data:image/png;base64,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");
+        background-repeat: no-repeat;
+        background-size: 800% 400%;
+        border-radius: 0;
+        transform: none;
+        image-rendering: pixelated;
+        box-shadow: none;
+        filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.55));
+        animation: marcheZombie 0.8s steps(8) infinite;
+      }
+
+      @keyframes marcheZombie {
+        from { background-position-x: 0%; }
+        to { background-position-x: -800%; }
+      }
+
+      /* Direction : on change la ligne de la feuille */
+      .enemy.sprite.dir-bas { background-position-y: 0%; }
+      .enemy.sprite.dir-droite { background-position-y: 33.333%; }
+      .enemy.sprite.dir-haut { background-position-y: 66.666%; }
+      .enemy.sprite.dir-gauche { background-position-y: 100%; }
+
+      /* Teintes par type, sur la meme feuille */
+      .enemy.sprite.fast { filter: drop-shadow(0 3px 4px rgba(0,0,0,.55)) hue-rotate(-35deg) saturate(1.5); }
+      .enemy.sprite.tank { filter: drop-shadow(0 3px 5px rgba(0,0,0,.6)) hue-rotate(190deg) brightness(0.9); }
+      .enemy.sprite.boss { filter: drop-shadow(0 4px 7px rgba(0,0,0,.7)) hue-rotate(265deg) saturate(1.7); }
+
+      /* Le zombie ralenti par la tourelle Givre */
+      .enemy.sprite.frozen {
+        filter: drop-shadow(0 3px 4px rgba(0,0,0,.55)) hue-rotate(150deg) brightness(1.3);
+        animation-duration: 1.6s;
       }
 
       @keyframes freeze-pulse {
