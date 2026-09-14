@@ -9035,6 +9035,7 @@
           f.style.display = "none";
           return;
         }
+        fermerAutresInterfaces("dev");
         rendrePanneauDev();
         document.getElementById("panneauDev").style.display = "flex";
       }
@@ -9693,19 +9694,41 @@
 
       // Fonction toggle menu pause
       function togglePauseMenu() {
-        pauseMenuOpen = !pauseMenuOpen;
+        const ouvrir = !pauseMenuOpen;
+        if (ouvrir) fermerAutresInterfaces("pause");
+        pauseMenuOpen = ouvrir;
         pauseMenu.style.display = pauseMenuOpen ? "flex" : "none";
         gamePaused = pauseMenuOpen || shopOpen || combinedSkillShopOpen;
       }
 
       // Fonctions de la boutique
       function toggleShop() {
-        shopOpen = !shopOpen;
+        const ouvrir = !shopOpen;
+        if (ouvrir) fermerAutresInterfaces("boutique");
+        shopOpen = ouvrir;
         shopMenu.style.display = shopOpen ? "block" : "none";
-        gamePaused = shopOpen;
+        gamePaused = shopOpen || combinedSkillShopOpen || pauseMenuOpen;
         if (shopOpen) {
           renderShop();
         }
+      }
+
+      // Une seule interface visible a la fois : on ferme les autres
+      function fermerAutresInterfaces(sauf) {
+        if (sauf !== "dev") fermerPanneauDev();
+        if (sauf !== "boutique" && shopOpen) {
+          shopOpen = false;
+          shopMenu.style.display = "none";
+        }
+        if (sauf !== "competences" && combinedSkillShopOpen) {
+          combinedSkillShopOpen = false;
+          combinedSkillShop.style.display = "none";
+        }
+        if (sauf !== "pause" && pauseMenuOpen) {
+          pauseMenuOpen = false;
+          pauseMenu.style.display = "none";
+        }
+        gamePaused = shopOpen || combinedSkillShopOpen || pauseMenuOpen;
       }
 
       function getItemPrice(item) {
@@ -9815,11 +9838,13 @@
 
       // Fonctions de la boutique combinée de compétences
       function toggleCombinedSkillShop() {
-        combinedSkillShopOpen = !combinedSkillShopOpen;
+        const ouvrir = !combinedSkillShopOpen;
+        if (ouvrir) fermerAutresInterfaces("competences");
+        combinedSkillShopOpen = ouvrir;
         combinedSkillShop.style.display = combinedSkillShopOpen
           ? "block"
           : "none";
-        gamePaused = combinedSkillShopOpen || shopOpen;
+        gamePaused = combinedSkillShopOpen || shopOpen || pauseMenuOpen;
         if (combinedSkillShopOpen) {
           renderCombinedSkillShop();
         }
