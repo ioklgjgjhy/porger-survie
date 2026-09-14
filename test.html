@@ -8885,12 +8885,15 @@
               messageDev("Lance une partie d'abord");
               return;
             }
-            currentWave = 49;
-            waveEnemiesRemaining = 0;
+            if (spawnTimerId) clearTimeout(spawnTimerId);
             enemies.forEach((en) => en.element.remove());
             enemies = [];
+            waveEnemiesRemaining = 0;
             waveInProgress = false;
+            bossActive = false;
             playerLevel = Math.max(playerLevel, 25);
+            currentWave = 49;
+            startWave(); // lance directement la vague 50
             messageDev("Passage a la vague 50");
           } else if (e.key === "F10") {
             permanentData.coins += 10000;
