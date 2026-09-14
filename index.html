@@ -8247,7 +8247,21 @@
         } catch (e) {}
       }
 
+      // Google renvoie parfois une erreur dans l'adresse : il faut la voir
+      let erreurConnexion = null;
+      function lireErreurRetour() {
+        const source = location.search + location.hash.replace("#", "&");
+        if (source.indexOf("error") === -1) return;
+        const p = new URLSearchParams(source.replace(/^[?#]/, ""));
+        const code = p.get("error_code") || p.get("error");
+        if (!code) return;
+        erreurConnexion = code;
+        history.replaceState(null, "", location.pathname);
+        console.warn("[Connexion] echec :", code, p.get("error_description"));
+      }
+
       async function initSession() {
+        lireErreurRetour();
         const retour = lireRetourGoogle();
         let token = null;
         if (retour) {
@@ -8468,7 +8482,24 @@
             "border-radius:7px;background:#c0392b;color:#fff;cursor:pointer;font-size:13px'>" +
             "Repartir de zéro</button></div></div>";
         } else {
+          // Message explicite si la derniere tentative a echoue
+          let alerte = "";
+          if (erreurConnexion) {
+            const safari =
+              /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+            alerte =
+              "<div style='background:rgba(231,76,60,.12);border:1px solid #e74c3c;" +
+              "border-radius:9px;padding:10px 12px;margin-bottom:10px;font-size:13px;" +
+              "color:#e74c3c'>\u26a0\ufe0f La connexion a échoué" +
+              (safari
+                ? ". Safari bloque les cookies entre sites. Va dans Réglages " +
+                  "Safari \u203a Confidentialité et désactive « Empêcher le suivi " +
+                  "intersites », puis réessaie."
+                : ". Réessaie dans un instant.") +
+              "</div>";
+          }
           zone.innerHTML =
+            alerte +
             "<div style='background:rgba(52,152,219,0.1);border:1px solid #3498db;" +
             "border-radius:10px;padding:12px;margin-bottom:14px'>" +
             "<p style='color:#ddd;font-size:13px;margin-bottom:10px'>" +
@@ -10198,6 +10229,10 @@
         shopOpen = false;
         gameStartTime = Date.now(); // Enregistrer l'heure de début pour la période de grâce
         enemiesSpawnedTotal = 0;
+        clearTimeout(waveNextTimerId);
+        waveNextTimerId = null;
+        clearTimeout(spawnTimerId);
+        spawnTimerId = null;
         itemsCollectedThisRun = 0;
         bossesKilledThisRun = 0;
         preparerDefisSemaine();
@@ -11325,6 +11360,13 @@
 
       // Démarrer une nouvelle vague
       function startWave() {
+        // Annuler tout lancement de vague ou spawn en attente,
+        // sinon deux vagues peuvent tourner en meme temps
+        clearTimeout(waveNextTimerId);
+        waveNextTimerId = null;
+        clearTimeout(spawnTimerId);
+        spawnTimerId = null;
+
         currentWave++;
         waveSpan.textContent = currentWave;
         waveInProgress = true;
@@ -11365,6 +11407,7 @@
 
       // Spawn les ennemis de la vague
       let spawnTimerId = null;
+      let waveNextTimerId = null; // minuteur de lancement de la vague suivante
 
       function spawnWaveEnemies() {
         if (!gameActive) return;
@@ -11477,7 +11520,9 @@
           showWaveCompletePopup(waveBonus);
 
           // Démarrer la prochaine vague après un délai
-          setTimeout(() => {
+          clearTimeout(waveNextTimerId);
+          waveNextTimerId = setTimeout(() => {
+            waveNextTimerId = null;
             if (gameActive) {
               startWave();
             }
