@@ -8591,7 +8591,21 @@
           }
 
           const medailles = ["🥇", "🥈", "🥉"];
-          let html =
+          let html = "";
+
+          if (modeSuppression) {
+            html +=
+              "<div style='background:rgba(192,57,43,.15);border:1px solid #c0392b;" +
+              "border-radius:9px;padding:10px 13px;margin-bottom:12px;" +
+              "display:flex;align-items:center;gap:10px;flex-wrap:wrap'>" +
+              "<span style='color:#e74c3c;font-weight:bold;font-size:13px;flex:1'>" +
+              "🎯 Mode suppression — clique sur un joueur pour le retirer</span>" +
+              "<button onclick='quitterModeSuppression()' style='padding:5px 13px;" +
+              "background:#555;border:none;border-radius:6px;color:#fff;" +
+              "font-size:12px;cursor:pointer'>Quitter</button></div>";
+          }
+
+          html +=
             "<table style='width:100%;border-collapse:collapse;font-size:14px'>" +
             "<tr style='color:#2ecc71;text-align:left'>" +
             "<th style='padding:8px'>#</th><th>Joueur</th>" +
@@ -8602,10 +8616,23 @@
             const fond = i < 3 ? "background:rgba(46,204,113,0.08);" : "";
             const moi =
               sc.pseudo === permanentData.pseudo ? "color:#f1c40f;font-weight:bold;" : "";
+            const enCours =
+              suppressionEnCours && suppressionEnCours.pseudo === sc.pseudo;
+            const action = modeSuppression
+              ? 'demanderSuppression("' +
+                echapper(sc.pseudo).replace(/"/g, "") + '")'
+              : "ouvrirReplay(" + sc.id + ")";
+            const style = modeSuppression
+              ? "outline:2px solid " + (enCours ? "#fff" : "#c0392b") + ";" +
+                "outline-offset:-2px;background:rgba(192,57,43," +
+                (enCours ? ".35" : ".12") + ");"
+              : "border-top:1px solid #333;" + fond + moi;
+
             html +=
-              "<tr onclick='ouvrirReplay(" + sc.id + ")' " +
-              "title='Voir le détail de cette partie' " +
-              "style='border-top:1px solid #333;cursor:pointer;" + fond + moi + "'>" +
+              "<tr onclick='" + action + "' " +
+              "title='" +
+              (modeSuppression ? "Supprimer ce joueur" : "Voir le détail") + "' " +
+              "style='cursor:pointer;" + style + "'>" +
               "<td style='padding:8px'>" + rang + "</td>" +
               "<td>" + echapper(sc.pseudo) + "</td>" +
               "<td>" + sc.vague + "</td>" +
@@ -8740,6 +8767,99 @@
           alert("Suppression impossible. Le SQL de modération est-il bien installé ?");
           console.error(e);
         }
+      }
+
+
+      // ====== MODE SUPPRESSION (developpeur) ======
+      let modeSuppression = false;
+      let suppressionEnCours = null;
+
+      function activerModeSuppression() {
+        if (!estDeveloppeur()) return;
+        modeSuppression = true;
+        fermerPanneauDev();
+        closeHubSubmenu();
+        document.getElementById("hubLeaderboardMenu").style.display = "flex";
+        messageDev("Mode suppression : clique sur un joueur");
+        chargerClassement().catch(() => {});
+      }
+
+      function quitterModeSuppression() {
+        modeSuppression = false;
+        annulerSuppression();
+        chargerClassement().catch(() => {});
+      }
+
+      function demanderSuppression(pseudo) {
+        if (!modeSuppression || suppressionEnCours) return;
+        suppressionEnCours = { pseudo: pseudo, restant: 10 };
+        afficherCompteARebours();
+        chargerClassement().catch(() => {});
+        suppressionEnCours.minuteur = setInterval(() => {
+          if (!suppressionEnCours) return;
+          suppressionEnCours.restant--;
+          if (suppressionEnCours.restant <= 0) {
+            clearInterval(suppressionEnCours.minuteur);
+            const p = suppressionEnCours.pseudo;
+            suppressionEnCours = null;
+            executerSuppression(p);
+          } else {
+            afficherCompteARebours();
+          }
+        }, 1000);
+      }
+
+      function annulerSuppression() {
+        if (!suppressionEnCours) return;
+        clearInterval(suppressionEnCours.minuteur);
+        suppressionEnCours = null;
+        const b = document.getElementById("bandeauSuppression");
+        if (b) b.remove();
+        chargerClassement().catch(() => {});
+      }
+
+      function afficherCompteARebours() {
+        let b = document.getElementById("bandeauSuppression");
+        if (!b) {
+          b = document.createElement("div");
+          b.id = "bandeauSuppression";
+          b.style.cssText =
+            "position:fixed;top:14px;left:50%;transform:translateX(-50%);" +
+            "background:#c0392b;color:#fff;padding:12px 20px;border-radius:11px;" +
+            "z-index:99999;box-shadow:0 6px 24px rgba(0,0,0,.6);text-align:center;" +
+            "min-width:290px";
+          document.body.appendChild(b);
+        }
+        const sup = suppressionEnCours;
+        if (!sup) return;
+        b.innerHTML =
+          "<div style='font-weight:bold;font-size:14px;margin-bottom:4px'>" +
+          "🗑️ Suppression de « " + echapper(sup.pseudo) + " »</div>" +
+          "<div style='font-size:12px;opacity:.9;margin-bottom:9px'>" +
+          "Effacement dans <b style='font-size:17px'>" + sup.restant + "</b> seconde" +
+          (sup.restant > 1 ? "s" : "") + "</div>" +
+          "<button onclick='annulerSuppression()' style='padding:6px 18px;" +
+          "background:#fff;color:#c0392b;border:none;border-radius:7px;" +
+          "font-weight:bold;cursor:pointer;font-size:13px'>Annuler</button>";
+      }
+
+      async function executerSuppression(pseudo) {
+        const b = document.getElementById("bandeauSuppression");
+        if (b) b.remove();
+        try {
+          const r = await fetch(SUPABASE_URL + "/rest/v1/rpc/supprimer_joueur", {
+            method: "POST",
+            headers: headersAuth(),
+            body: JSON.stringify({ p_pseudo: pseudo }),
+          });
+          if (!r.ok) throw new Error(await r.text());
+          messageDev("« " + pseudo + " » supprimé du classement");
+        } catch (e) {
+          messageDev("Suppression impossible");
+          console.error("suppression :", e);
+        }
+        chargerClassement().catch(() => {});
+        chargerPodium().catch(() => {});
       }
 
       // ====== REPLAY : detail d'une partie vague par vague ======
@@ -9270,7 +9390,87 @@
       // tout passe par un panneau visuel.
       let invincibiliteDev = false;
 
+      // Valeurs ajustables du panneau (boutons - et +)
+      const REGLAGES_DEV = {
+        vagues: { v: 10, min: 1, max: 100, pas: 1, unite: "vagues" },
+        niveaux: { v: 5, min: 1, max: 50, pas: 1, unite: "niveaux" },
+        pieces: { v: 5000, min: 0, max: 100000, pas: 1000, unite: "pièces" },
+        gemmes: { v: 250, min: 0, max: 5000, pas: 50, unite: "gemmes" },
+        argent: { v: 1000, min: 0, max: 50000, pas: 500, unite: "$ en jeu" },
+      };
+
+      function ajusterDev(cle, sens) {
+        const r = REGLAGES_DEV[cle];
+        r.v = Math.max(r.min, Math.min(r.max, r.v + r.pas * sens));
+        const c = document.getElementById("champ_" + cle);
+        if (c) c.value = r.v;
+      }
+
+      function saisirDev(cle, valeur) {
+        const r = REGLAGES_DEV[cle];
+        const x = parseInt(valeur, 10);
+        r.v = isNaN(x) ? r.min : Math.max(r.min, Math.min(r.max, x));
+      }
+
+      function devVague(sens) {
+        if (!gameActive) return messageDev("Lance une partie d'abord");
+        const cible = Math.max(1, currentWave + REGLAGES_DEV.vagues.v * sens);
+        clearTimeout(waveNextTimerId);
+        waveNextTimerId = null;
+        clearTimeout(spawnTimerId);
+        spawnTimerId = null;
+        enemies.forEach((en) => en.element.remove());
+        enemies = [];
+        waveEnemiesRemaining = 0;
+        waveInProgress = false;
+        bossActive = false;
+        bossHealthBar.style.display = "none";
+        bossNameDiv.style.display = "none";
+        currentWave = cible - 1;
+        startWave();
+        messageDev("Vague " + cible);
+      }
+
+      function devNiveau(sens) {
+        if (!gameActive) return messageDev("Lance une partie d'abord");
+        playerLevel = Math.max(1, playerLevel + REGLAGES_DEV.niveaux.v * sens);
+        messageDev("Niveau " + playerLevel);
+      }
+
+      function devRessources(sens) {
+        permanentData.coins = Math.max(
+          0, permanentData.coins + REGLAGES_DEV.pieces.v * sens);
+        permanentData.gems = Math.max(
+          0, permanentData.gems + REGLAGES_DEV.gemmes.v * sens);
+        savePermanentData();
+        updateHubDisplay();
+        messageDev(
+          (sens > 0 ? "+" : "-") + REGLAGES_DEV.pieces.v.toLocaleString("fr-FR") +
+          " pièces, " + (sens > 0 ? "+" : "-") + REGLAGES_DEV.gemmes.v + " gemmes");
+      }
+
+      function devArgentPartie(sens) {
+        if (!gameActive) return messageDev("Lance une partie d'abord");
+        playerMoney = Math.max(0, playerMoney + REGLAGES_DEV.argent.v * sens);
+        if (typeof updateMoneyDisplay === "function") updateMoneyDisplay();
+        messageDev("Argent : " + Math.round(playerMoney) + " $");
+      }
+
       const ACTIONS_DEV = [
+        {
+          icone: "\ud83c\udfaf",
+          titre: "Mode suppression",
+          detail: "Choisir un joueur à retirer du classement",
+          couleur: "#c0392b",
+          action: () => activerModeSuppression(),
+        },
+        {
+          icone: "\ud83d\udc41\ufe0f",
+          titre: "Voir les parties",
+          detail: "Liste complète, groupée par joueur",
+          couleur: "#8e44ad",
+          action: () => ouvrirModeration(),
+        },
         {
           icone: "\u23e9",
           titre: "Vague 50",
@@ -9392,6 +9592,44 @@
           document.body.appendChild(f);
         }
 
+        // Lignes reglables : [-] [valeur] [+] Retirer / Ajouter
+        const ligneReglage = (cle, libelle, fnMoins, fnPlus, couleur) => {
+          const r = REGLAGES_DEV[cle];
+          return (
+            "<div style='display:flex;align-items:center;gap:6px;margin-bottom:8px;" +
+            "flex-wrap:wrap'>" +
+            "<span style='min-width:72px;font-size:13px;color:#bbb'>" + libelle + "</span>" +
+            "<button onclick='ajusterDev(\"" + cle + "\",-1)' style='width:27px;" +
+            "height:27px;border:1px solid #555;background:#1a1a35;color:#fff;" +
+            "border-radius:6px;cursor:pointer;font-size:15px;line-height:1'>\u2212</button>" +
+            "<input id='champ_" + cle + "' type='number' value='" + r.v + "' " +
+            "onchange='saisirDev(\"" + cle + "\",this.value)' style='width:76px;" +
+            "padding:5px;text-align:center;background:#1a1a35;border:1px solid #555;" +
+            "border-radius:6px;color:#fff;font-size:13px'>" +
+            "<button onclick='ajusterDev(\"" + cle + "\",1)' style='width:27px;" +
+            "height:27px;border:1px solid #555;background:#1a1a35;color:#fff;" +
+            "border-radius:6px;cursor:pointer;font-size:15px;line-height:1'>+</button>" +
+            "<span style='font-size:11px;color:#666;min-width:52px'>" + r.unite + "</span>" +
+            "<button onclick='" + fnMoins + "' style='padding:5px 10px;background:none;" +
+            "border:1px solid " + couleur + ";color:" + couleur + ";border-radius:6px;" +
+            "cursor:pointer;font-size:12px'>\u2212</button>" +
+            "<button onclick='" + fnPlus + "' style='padding:5px 10px;background:" +
+            couleur + "22;border:1px solid " + couleur + ";color:" + couleur +
+            ";border-radius:6px;cursor:pointer;font-size:12px;font-weight:bold'>+</button>" +
+            "</div>"
+          );
+        };
+
+        const reglages =
+          "<div style='background:rgba(255,255,255,.03);border-radius:11px;" +
+          "padding:12px;margin-bottom:13px'>" +
+          ligneReglage("vagues", "Vagues", "devVague(-1)", "devVague(1)", "#e67e22") +
+          ligneReglage("niveaux", "Niveau", "devNiveau(-1)", "devNiveau(1)", "#9b59b6") +
+          ligneReglage("pieces", "Pièces", "devRessources(-1)", "devRessources(1)", "#f1c40f") +
+          ligneReglage("gemmes", "Gemmes", "devRessources(-1)", "devRessources(1)", "#3498db") +
+          ligneReglage("argent", "Argent", "devArgentPartie(-1)", "devArgentPartie(1)", "#16a085") +
+          "</div>";
+
         let cartes = "";
         ACTIONS_DEV.forEach((a, i) => {
           const etat = a.etat ? a.etat() : null;
@@ -9420,6 +9658,7 @@
           "color:#888;font-size:25px;cursor:pointer;line-height:1'>&times;</button></div>" +
           "<p style='color:#666;font-size:12px;margin-bottom:16px'>" +
           "Touche I pour ouvrir ou fermer</p>" +
+          reglages +
           "<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));" +
           "gap:11px'>" + cartes + "</div></div>";
       }
