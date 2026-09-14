@@ -8592,22 +8592,19 @@
 
           const medailles = ["🥇", "🥈", "🥉"];
           let html = "";
+
           if (modeSuppression) {
             html +=
-              "<div style='background:rgba(231,76,60,.15);border:1px solid #e74c3c;" +
-              "border-radius:9px;padding:10px 13px;margin-bottom:12px;display:flex;" +
-              "align-items:center;gap:10px;flex-wrap:wrap'>" +
-              "<span style='flex:1;color:#e74c3c;font-size:13px;font-weight:bold'>" +
-              "\ud83d\udee0\ufe0f Mode suppression \u00b7 clique sur le joueur à retirer" +
-              "</span>" +
-              "<button onclick='quitterModeSuppression()' style='padding:6px 13px;" +
-              "background:none;border:1px solid #888;border-radius:7px;color:#bbb;" +
-              "cursor:pointer;font-size:12px'>Quitter</button></div>";
+              "<div style='background:rgba(192,57,43,.15);border:1px solid #c0392b;" +
+              "border-radius:9px;padding:10px 13px;margin-bottom:12px;" +
+              "display:flex;align-items:center;gap:10px;flex-wrap:wrap'>" +
+              "<span style='color:#e74c3c;font-weight:bold;font-size:13px;flex:1'>" +
+              "🎯 Mode suppression — clique sur un joueur pour le retirer</span>" +
+              "<button onclick='quitterModeSuppression()' style='padding:5px 13px;" +
+              "background:#555;border:none;border-radius:6px;color:#fff;" +
+              "font-size:12px;cursor:pointer'>Quitter</button></div>";
           }
-          html +=
-            "<div id='bandeauSuppression' style='display:none;background:#c0392b;" +
-            "border-radius:9px;padding:11px 14px;margin-bottom:12px;color:#fff;" +
-            "align-items:center;gap:10px;font-size:14px'></div>";
+
           html +=
             "<table style='width:100%;border-collapse:collapse;font-size:14px'>" +
             "<tr style='color:#2ecc71;text-align:left'>" +
@@ -8619,26 +8616,29 @@
             const fond = i < 3 ? "background:rgba(46,204,113,0.08);" : "";
             const moi =
               sc.pseudo === permanentData.pseudo ? "color:#f1c40f;font-weight:bold;" : "";
+            const enCours =
+              suppressionEnCours && suppressionEnCours.pseudo === sc.pseudo;
             const action = modeSuppression
-              ? "demanderSuppression(" + sc.id + ",\"" +
-                echapper(sc.pseudo).replace(/"/g, "") + "\")"
+              ? 'demanderSuppression("' +
+                echapper(sc.pseudo).replace(/"/g, "") + '")'
               : "ouvrirReplay(" + sc.id + ")";
             const style = modeSuppression
-              ? "outline:1px solid rgba(231,76,60,.4);"
-              : "";
+              ? "outline:2px solid " + (enCours ? "#fff" : "#c0392b") + ";" +
+                "outline-offset:-2px;background:rgba(192,57,43," +
+                (enCours ? ".35" : ".12") + ");"
+              : "border-top:1px solid #333;" + fond + moi;
+
             html +=
-              "<tr id='ligne_score_" + sc.id + "' onclick='" + action + "' " +
-              "title='" + (modeSuppression ? "Supprimer ce score" : "Voir le détail") + "' " +
-              "style='border-top:1px solid #333;cursor:pointer;" + style + fond + moi + "'>" +
+              "<tr onclick='" + action + "' " +
+              "title='" +
+              (modeSuppression ? "Supprimer ce joueur" : "Voir le détail") + "' " +
+              "style='cursor:pointer;" + style + "'>" +
               "<td style='padding:8px'>" + rang + "</td>" +
               "<td>" + echapper(sc.pseudo) + "</td>" +
               "<td>" + sc.vague + "</td>" +
               "<td>" + sc.temps + "s</td>" +
               "<td>" + sc.kills + "</td>" +
-              (modeSuppression
-                ? "<td style='color:#e74c3c;font-size:12px'>supprimer</td>"
-                : "<td style='color:#666;font-size:12px'>détail \u203a</td>") +
-              "</tr>";
+              "<td style='color:#666;font-size:12px'>détail \u203a</td></tr>";
           });
           zone.innerHTML = html + "</table>";
         } catch (e) {
@@ -8767,6 +8767,99 @@
           alert("Suppression impossible. Le SQL de modération est-il bien installé ?");
           console.error(e);
         }
+      }
+
+
+      // ====== MODE SUPPRESSION (developpeur) ======
+      let modeSuppression = false;
+      let suppressionEnCours = null;
+
+      function activerModeSuppression() {
+        if (!estDeveloppeur()) return;
+        modeSuppression = true;
+        fermerPanneauDev();
+        closeHubSubmenu();
+        document.getElementById("hubLeaderboardMenu").style.display = "flex";
+        messageDev("Mode suppression : clique sur un joueur");
+        chargerClassement().catch(() => {});
+      }
+
+      function quitterModeSuppression() {
+        modeSuppression = false;
+        annulerSuppression();
+        chargerClassement().catch(() => {});
+      }
+
+      function demanderSuppression(pseudo) {
+        if (!modeSuppression || suppressionEnCours) return;
+        suppressionEnCours = { pseudo: pseudo, restant: 10 };
+        afficherCompteARebours();
+        chargerClassement().catch(() => {});
+        suppressionEnCours.minuteur = setInterval(() => {
+          if (!suppressionEnCours) return;
+          suppressionEnCours.restant--;
+          if (suppressionEnCours.restant <= 0) {
+            clearInterval(suppressionEnCours.minuteur);
+            const p = suppressionEnCours.pseudo;
+            suppressionEnCours = null;
+            executerSuppression(p);
+          } else {
+            afficherCompteARebours();
+          }
+        }, 1000);
+      }
+
+      function annulerSuppression() {
+        if (!suppressionEnCours) return;
+        clearInterval(suppressionEnCours.minuteur);
+        suppressionEnCours = null;
+        const b = document.getElementById("bandeauSuppression");
+        if (b) b.remove();
+        chargerClassement().catch(() => {});
+      }
+
+      function afficherCompteARebours() {
+        let b = document.getElementById("bandeauSuppression");
+        if (!b) {
+          b = document.createElement("div");
+          b.id = "bandeauSuppression";
+          b.style.cssText =
+            "position:fixed;top:14px;left:50%;transform:translateX(-50%);" +
+            "background:#c0392b;color:#fff;padding:12px 20px;border-radius:11px;" +
+            "z-index:99999;box-shadow:0 6px 24px rgba(0,0,0,.6);text-align:center;" +
+            "min-width:290px";
+          document.body.appendChild(b);
+        }
+        const sup = suppressionEnCours;
+        if (!sup) return;
+        b.innerHTML =
+          "<div style='font-weight:bold;font-size:14px;margin-bottom:4px'>" +
+          "🗑️ Suppression de « " + echapper(sup.pseudo) + " »</div>" +
+          "<div style='font-size:12px;opacity:.9;margin-bottom:9px'>" +
+          "Effacement dans <b style='font-size:17px'>" + sup.restant + "</b> seconde" +
+          (sup.restant > 1 ? "s" : "") + "</div>" +
+          "<button onclick='annulerSuppression()' style='padding:6px 18px;" +
+          "background:#fff;color:#c0392b;border:none;border-radius:7px;" +
+          "font-weight:bold;cursor:pointer;font-size:13px'>Annuler</button>";
+      }
+
+      async function executerSuppression(pseudo) {
+        const b = document.getElementById("bandeauSuppression");
+        if (b) b.remove();
+        try {
+          const r = await fetch(SUPABASE_URL + "/rest/v1/rpc/supprimer_joueur", {
+            method: "POST",
+            headers: headersAuth(),
+            body: JSON.stringify({ p_pseudo: pseudo }),
+          });
+          if (!r.ok) throw new Error(await r.text());
+          messageDev("« " + pseudo + " » supprimé du classement");
+        } catch (e) {
+          messageDev("Suppression impossible");
+          console.error("suppression :", e);
+        }
+        chargerClassement().catch(() => {});
+        chargerPodium().catch(() => {});
       }
 
       // ====== REPLAY : detail d'une partie vague par vague ======
@@ -9297,62 +9390,31 @@
       // tout passe par un panneau visuel.
       let invincibiliteDev = false;
 
-      function ouvrirPanneauDev() {
-        if (!estDeveloppeur()) return;
-        const f = document.getElementById("panneauDev");
-        if (f && f.style.display === "flex") {
-          fermerPanneauDev();
-          return;
-        }
-        fermerAutresInterfaces("dev");
-        rendrePanneauDev();
-        document.getElementById("panneauDev").style.display = "flex";
-      }
-
-      function fermerPanneauDev() {
-        const f = document.getElementById("panneauDev");
-        if (f) f.style.display = "none";
-      }
-
-      // ====== REGLAGES DU PANNEAU DEVELOPPEUR ======
+      // Valeurs ajustables du panneau (boutons - et +)
       const REGLAGES_DEV = {
-        vagues: 10,
-        niveaux: 5,
-        pieces: 10000,
-        gemmes: 500,
-        argent: 5000,
-        pv: 100,
-      };
-
-      const BORNES_DEV = {
-        vagues: [1, 100, 1],
-        niveaux: [1, 50, 1],
-        pieces: [500, 100000, 500],
-        gemmes: [10, 5000, 10],
-        argent: [100, 100000, 100],
-        pv: [10, 5000, 10],
+        vagues: { v: 10, min: 1, max: 100, pas: 1, unite: "vagues" },
+        niveaux: { v: 5, min: 1, max: 50, pas: 1, unite: "niveaux" },
+        pieces: { v: 5000, min: 0, max: 100000, pas: 1000, unite: "pièces" },
+        gemmes: { v: 250, min: 0, max: 5000, pas: 50, unite: "gemmes" },
+        argent: { v: 1000, min: 0, max: 50000, pas: 500, unite: "$ en jeu" },
       };
 
       function ajusterDev(cle, sens) {
-        const [mini, maxi, pas] = BORNES_DEV[cle];
-        REGLAGES_DEV[cle] = Math.max(
-          mini,
-          Math.min(maxi, REGLAGES_DEV[cle] + pas * sens)
-        );
-        rendrePanneauDev();
+        const r = REGLAGES_DEV[cle];
+        r.v = Math.max(r.min, Math.min(r.max, r.v + r.pas * sens));
+        const c = document.getElementById("champ_" + cle);
+        if (c) c.value = r.v;
       }
 
       function saisirDev(cle, valeur) {
-        const [mini, maxi] = BORNES_DEV[cle];
-        REGLAGES_DEV[cle] = Math.max(mini, Math.min(maxi, parseInt(valeur, 10) || mini));
-        const champ = document.getElementById("champ_" + cle);
-        if (champ) champ.value = REGLAGES_DEV[cle];
+        const r = REGLAGES_DEV[cle];
+        const x = parseInt(valeur, 10);
+        r.v = isNaN(x) ? r.min : Math.max(r.min, Math.min(r.max, x));
       }
 
-      // ---- Actions ----
       function devVague(sens) {
         if (!gameActive) return messageDev("Lance une partie d'abord");
-        const cible = Math.max(1, currentWave + REGLAGES_DEV.vagues * sens);
+        const cible = Math.max(1, currentWave + REGLAGES_DEV.vagues.v * sens);
         clearTimeout(waveNextTimerId);
         waveNextTimerId = null;
         clearTimeout(spawnTimerId);
@@ -9371,58 +9433,142 @@
 
       function devNiveau(sens) {
         if (!gameActive) return messageDev("Lance une partie d'abord");
-        playerLevel = Math.max(1, playerLevel + REGLAGES_DEV.niveaux * sens);
+        playerLevel = Math.max(1, playerLevel + REGLAGES_DEV.niveaux.v * sens);
         messageDev("Niveau " + playerLevel);
       }
 
-      function devPieces(sens) {
-        permanentData.coins = Math.max(0, permanentData.coins + REGLAGES_DEV.pieces * sens);
+      function devRessources(sens) {
+        permanentData.coins = Math.max(
+          0, permanentData.coins + REGLAGES_DEV.pieces.v * sens);
+        permanentData.gems = Math.max(
+          0, permanentData.gems + REGLAGES_DEV.gemmes.v * sens);
         savePermanentData();
         updateHubDisplay();
-        messageDev(permanentData.coins.toLocaleString("fr-FR") + " pièces");
+        messageDev(
+          (sens > 0 ? "+" : "-") + REGLAGES_DEV.pieces.v.toLocaleString("fr-FR") +
+          " pièces, " + (sens > 0 ? "+" : "-") + REGLAGES_DEV.gemmes.v + " gemmes");
       }
 
-      function devGemmes(sens) {
-        permanentData.gems = Math.max(0, permanentData.gems + REGLAGES_DEV.gemmes * sens);
-        savePermanentData();
-        updateHubDisplay();
-        messageDev(permanentData.gems + " gemmes");
-      }
-
-      function devArgent(sens) {
+      function devArgentPartie(sens) {
         if (!gameActive) return messageDev("Lance une partie d'abord");
-        playerMoney = Math.max(0, playerMoney + REGLAGES_DEV.argent * sens);
-        updateMoneyDisplay();
-        messageDev(Math.round(playerMoney) + " $");
+        playerMoney = Math.max(0, playerMoney + REGLAGES_DEV.argent.v * sens);
+        if (typeof updateMoneyDisplay === "function") updateMoneyDisplay();
+        messageDev("Argent : " + Math.round(playerMoney) + " $");
       }
 
-      function devPV(sens) {
-        if (!gameActive) return messageDev("Lance une partie d'abord");
-        maxHealth = Math.max(10, maxHealth + REGLAGES_DEV.pv * sens);
-        playerHealth = Math.min(playerHealth, maxHealth);
-        if (sens > 0) playerHealth = maxHealth;
-        updateHealth();
-        messageDev("PV max : " + maxHealth);
-      }
+      const ACTIONS_DEV = [
+        {
+          icone: "\u23e9",
+          titre: "Vague 50",
+          detail: "Saute directement au boss",
+          couleur: "#e67e22",
+          action: () => {
+            if (!gameActive) return messageDev("Lance une partie d'abord");
+            if (spawnTimerId) clearTimeout(spawnTimerId);
+            enemies.forEach((en) => en.element.remove());
+            enemies = [];
+            waveEnemiesRemaining = 0;
+            waveInProgress = false;
+            bossActive = false;
+            playerLevel = Math.max(playerLevel, 25);
+            currentWave = 49;
+            startWave();
+            messageDev("Passage a la vague 50");
+          },
+        },
+        {
+          icone: "\ud83d\udca5",
+          titre: "Tout tuer",
+          detail: "Elimine les zombies a l'ecran",
+          couleur: "#c0392b",
+          action: () => {
+            if (!gameActive) return messageDev("Lance une partie d'abord");
+            const nb = enemies.length;
+            [...enemies].forEach((en) => damageEnemy(en, 999999));
+            messageDev(nb + " zombies elimines");
+          },
+        },
+        {
+          icone: "\ud83d\udee1\ufe0f",
+          titre: "Invincible",
+          detail: "Active ou desactive les degats",
+          couleur: "#2980b9",
+          action: () => {
+            invincibiliteDev = !invincibiliteDev;
+            messageDev(
+              invincibiliteDev ? "Invincibilite activee" : "Invincibilite desactivee"
+            );
+            rendrePanneauDev();
+          },
+          etat: () => (invincibiliteDev ? "ON" : "OFF"),
+        },
+        {
+          icone: "\ud83d\udcb0",
+          titre: "Ressources",
+          detail: "+10 000 pieces, +500 gemmes",
+          couleur: "#f1c40f",
+          action: () => {
+            permanentData.coins += 10000;
+            permanentData.gems += 500;
+            savePermanentData();
+            updateHubDisplay();
+            messageDev("+10 000 pieces et +500 gemmes");
+          },
+        },
+        {
+          icone: "\u2b06\ufe0f",
+          titre: "Niveau +5",
+          detail: "Monte le niveau du joueur",
+          couleur: "#9b59b6",
+          action: () => {
+            if (!gameActive) return messageDev("Lance une partie d'abord");
+            playerLevel += 5;
+            messageDev("Niveau " + playerLevel);
+          },
+        },
+        {
+          icone: "\ud83c\udfaf",
+          titre: "Mode suppression",
+          detail: "Sélectionner un joueur à retirer",
+          couleur: "#c0392b",
+          action: () => activerModeSuppression(),
+        },
+        {
+          icone: "\ud83d\udee0\ufe0f",
+          titre: "Modération",
+          detail: "Gérer et supprimer les scores",
+          couleur: "#8e44ad",
+          action: () => ouvrirModeration(),
+        },
+        {
+          icone: "\u2764\ufe0f",
+          titre: "Soin complet",
+          detail: "Remet les PV au maximum",
+          couleur: "#27ae60",
+          action: () => {
+            if (!gameActive) return messageDev("Lance une partie d'abord");
+            playerHealth = maxHealth;
+            updateHealth();
+            messageDev("PV restaures");
+          },
+        },
+      ];
 
-      function devTuerTout() {
-        if (!gameActive) return messageDev("Lance une partie d'abord");
-        const nb = enemies.length;
-        [...enemies].forEach((en) => damageEnemy(en, 999999));
-        messageDev(nb + " zombies éliminés");
-      }
-
-      function devInvincible() {
-        invincibiliteDev = !invincibiliteDev;
-        messageDev(invincibiliteDev ? "Invincibilité activée" : "Invincibilité désactivée");
+      function ouvrirPanneauDev() {
+        if (!estDeveloppeur()) return;
+        let f = document.getElementById("panneauDev");
+        if (f && f.style.display === "flex") {
+          f.style.display = "none";
+          return;
+        }
+        fermerAutresInterfaces("dev");
         rendrePanneauDev();
+        document.getElementById("panneauDev").style.display = "flex";
       }
 
-      function devSoin() {
-        if (!gameActive) return messageDev("Lance une partie d'abord");
-        playerHealth = maxHealth;
-        updateHealth();
-        messageDev("PV restaurés");
+      function fermerPanneauDev() {
+        const f = document.getElementById("panneauDev");
+        if (f) f.style.display = "none";
       }
 
       function rendrePanneauDev() {
@@ -9431,167 +9577,83 @@
           f = document.createElement("div");
           f.id = "panneauDev";
           f.style.cssText =
-            "position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:99998;" +
-            "display:none;align-items:center;justify-content:center;padding:16px;" +
-            "overflow-y:auto";
+            "position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:99998;" +
+            "display:none;align-items:center;justify-content:center;padding:20px";
           f.addEventListener("click", (e) => {
             if (e.target === f) fermerPanneauDev();
           });
           document.body.appendChild(f);
         }
 
-        // Une ligne : - [valeur] + puis deux boutons d'action
-        const reglage = (cle, libelle, unite, fnMoins, fnPlus, couleur) =>
-          "<div style='display:flex;align-items:center;gap:7px;margin-bottom:9px;" +
-          "flex-wrap:wrap'>" +
-          "<span style='min-width:74px;font-size:13px;color:#bbb'>" + libelle + "</span>" +
-          "<button onclick='ajusterDev(\"" + cle + "\",-1)' style='width:28px;height:28px;" +
-          "border:1px solid #555;background:#1a1a35;color:#fff;border-radius:6px;" +
-          "cursor:pointer;font-size:15px;line-height:1'>\u2212</button>" +
-          "<input id='champ_" + cle + "' type='number' value='" + REGLAGES_DEV[cle] +
-          "' onchange='saisirDev(\"" + cle + "\",this.value)' " +
-          "style='width:78px;padding:5px;text-align:center;background:#1a1a35;" +
-          "border:1px solid #555;border-radius:6px;color:#fff;font-size:13px'>" +
-          "<button onclick='ajusterDev(\"" + cle + "\",1)' style='width:28px;height:28px;" +
-          "border:1px solid #555;background:#1a1a35;color:#fff;border-radius:6px;" +
-          "cursor:pointer;font-size:15px;line-height:1'>+</button>" +
-          "<span style='font-size:11px;color:#666;min-width:46px'>" + unite + "</span>" +
-          "<button onclick='" + fnMoins + "' style='padding:5px 11px;background:none;" +
-          "border:1px solid " + couleur + ";color:" + couleur + ";border-radius:6px;" +
-          "cursor:pointer;font-size:12px'>Retirer</button>" +
-          "<button onclick='" + fnPlus + "' style='padding:5px 11px;background:" +
-          couleur + "22;border:1px solid " + couleur + ";color:" + couleur +
-          ";border-radius:6px;cursor:pointer;font-size:12px;font-weight:bold'>" +
-          "Ajouter</button></div>";
+        // Lignes reglables : [-] [valeur] [+] Retirer / Ajouter
+        const ligneReglage = (cle, libelle, fnMoins, fnPlus, couleur) => {
+          const r = REGLAGES_DEV[cle];
+          return (
+            "<div style='display:flex;align-items:center;gap:6px;margin-bottom:8px;" +
+            "flex-wrap:wrap'>" +
+            "<span style='min-width:72px;font-size:13px;color:#bbb'>" + libelle + "</span>" +
+            "<button onclick='ajusterDev(\"" + cle + "\",-1)' style='width:27px;" +
+            "height:27px;border:1px solid #555;background:#1a1a35;color:#fff;" +
+            "border-radius:6px;cursor:pointer;font-size:15px;line-height:1'>\u2212</button>" +
+            "<input id='champ_" + cle + "' type='number' value='" + r.v + "' " +
+            "onchange='saisirDev(\"" + cle + "\",this.value)' style='width:76px;" +
+            "padding:5px;text-align:center;background:#1a1a35;border:1px solid #555;" +
+            "border-radius:6px;color:#fff;font-size:13px'>" +
+            "<button onclick='ajusterDev(\"" + cle + "\",1)' style='width:27px;" +
+            "height:27px;border:1px solid #555;background:#1a1a35;color:#fff;" +
+            "border-radius:6px;cursor:pointer;font-size:15px;line-height:1'>+</button>" +
+            "<span style='font-size:11px;color:#666;min-width:52px'>" + r.unite + "</span>" +
+            "<button onclick='" + fnMoins + "' style='padding:5px 10px;background:none;" +
+            "border:1px solid " + couleur + ";color:" + couleur + ";border-radius:6px;" +
+            "cursor:pointer;font-size:12px'>\u2212</button>" +
+            "<button onclick='" + fnPlus + "' style='padding:5px 10px;background:" +
+            couleur + "22;border:1px solid " + couleur + ";color:" + couleur +
+            ";border-radius:6px;cursor:pointer;font-size:12px;font-weight:bold'>+</button>" +
+            "</div>"
+          );
+        };
+
+        const reglages =
+          "<div style='background:rgba(255,255,255,.03);border-radius:11px;" +
+          "padding:12px;margin-bottom:13px'>" +
+          ligneReglage("vagues", "Vagues", "devVague(-1)", "devVague(1)", "#e67e22") +
+          ligneReglage("niveaux", "Niveau", "devNiveau(-1)", "devNiveau(1)", "#9b59b6") +
+          ligneReglage("pieces", "Pièces", "devRessources(-1)", "devRessources(1)", "#f1c40f") +
+          ligneReglage("gemmes", "Gemmes", "devRessources(-1)", "devRessources(1)", "#3498db") +
+          ligneReglage("argent", "Argent", "devArgentPartie(-1)", "devArgentPartie(1)", "#16a085") +
+          "</div>";
+
+        let cartes = "";
+        ACTIONS_DEV.forEach((a, i) => {
+          const etat = a.etat ? a.etat() : null;
+          cartes +=
+            "<button onclick='ACTIONS_DEV[" + i + "].action()' " +
+            "style='display:flex;flex-direction:column;align-items:center;gap:5px;" +
+            "background:linear-gradient(145deg,rgba(40,40,70,.95),rgba(22,22,45,.95));" +
+            "border:2px solid " + a.couleur + ";border-radius:13px;padding:15px 10px;" +
+            "cursor:pointer;transition:transform .15s;color:#fff' " +
+            "onmouseover='this.style.transform=\"translateY(-3px)\"' " +
+            "onmouseout='this.style.transform=\"none\"'>" +
+            "<span style='font-size:27px'>" + a.icone + "</span>" +
+            "<span style='font-weight:bold;font-size:14px;color:" + a.couleur + "'>" +
+            a.titre + (etat ? " \u00b7 " + etat : "") + "</span>" +
+            "<span style='font-size:11px;color:#999;text-align:center;line-height:1.3'>" +
+            a.detail + "</span></button>";
+        });
 
         f.innerHTML =
-          "<div style='background:#101028;border:2px solid #8e44ad;border-radius:16px;" +
-          "padding:19px;max-width:520px;width:100%;max-height:92vh;overflow-y:auto;" +
-          "box-shadow:0 14px 50px rgba(0,0,0,.7)'>" +
-
-          "<div style='display:flex;align-items:center;gap:9px;margin-bottom:15px'>" +
-          "<span style='font-size:20px'>\u2699\ufe0f</span>" +
-          "<h2 style='color:#8e44ad;font-size:17px;margin:0;flex:1'>Panneau développeur</h2>" +
+          "<div style='background:#12122a;border:2px solid #8e44ad;border-radius:17px;" +
+          "padding:22px;max-width:540px;width:100%;box-shadow:0 12px 45px rgba(0,0,0,.6)'>" +
+          "<div style='display:flex;align-items:center;gap:10px;margin-bottom:5px'>" +
+          "<span style='font-size:22px'>\u2699\ufe0f</span>" +
+          "<h2 style='color:#8e44ad;font-size:19px;margin:0;flex:1'>Panneau développeur</h2>" +
           "<button onclick='fermerPanneauDev()' style='background:none;border:none;" +
-          "color:#777;font-size:23px;cursor:pointer;line-height:1'>&times;</button></div>" +
-
-          reglage("vagues", "Vagues", "vagues", "devVague(-1)", "devVague(1)", "#e67e22") +
-          reglage("niveaux", "Niveau", "niveaux", "devNiveau(-1)", "devNiveau(1)", "#9b59b6") +
-          reglage("pv", "PV max", "PV", "devPV(-1)", "devPV(1)", "#27ae60") +
-          reglage("argent", "Argent", "$", "devArgent(-1)", "devArgent(1)", "#16a085") +
-          reglage("pieces", "Pièces", "pièces", "devPieces(-1)", "devPieces(1)", "#f1c40f") +
-          reglage("gemmes", "Gemmes", "gemmes", "devGemmes(-1)", "devGemmes(1)", "#3498db") +
-
-          "<div style='display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;" +
-          "padding-top:13px;border-top:1px solid rgba(255,255,255,.1)'>" +
-          "<button onclick='devTuerTout()' style='flex:1;min-width:104px;padding:9px;" +
-          "background:#c0392b22;border:1px solid #c0392b;color:#c0392b;border-radius:8px;" +
-          "cursor:pointer;font-size:13px;font-weight:bold'>\ud83d\udca5 Tout tuer</button>" +
-          "<button onclick='devInvincible()' style='flex:1;min-width:104px;padding:9px;" +
-          "background:" + (invincibiliteDev ? "#27ae6022" : "#2980b922") + ";border:1px solid " +
-          (invincibiliteDev ? "#27ae60" : "#2980b9") + ";color:" +
-          (invincibiliteDev ? "#27ae60" : "#2980b9") + ";border-radius:8px;cursor:pointer;" +
-          "font-size:13px;font-weight:bold'>\ud83d\udee1\ufe0f Invincible " +
-          (invincibiliteDev ? "ON" : "OFF") + "</button>" +
-          "<button onclick='devSoin()' style='flex:1;min-width:104px;padding:9px;" +
-          "background:#27ae6022;border:1px solid #27ae60;color:#27ae60;border-radius:8px;" +
-          "cursor:pointer;font-size:13px;font-weight:bold'>\u2764\ufe0f Soin</button></div>" +
-
-          "<button onclick='lancerModeSuppression()' style='width:100%;margin-top:11px;" +
-          "padding:10px;background:#8e44ad22;border:1px solid #8e44ad;color:#8e44ad;" +
-          "border-radius:8px;cursor:pointer;font-size:13px;font-weight:bold'>" +
-          "\ud83d\udee0\ufe0f Supprimer un score du classement</button>" +
-
-          "<p style='color:#555;font-size:11px;text-align:center;margin-top:11px'>" +
-          "Touche I ou \u2699\ufe0f pour ouvrir et fermer</p></div>";
-      }
-
-      // ====== MODE SUPPRESSION : on designe le joueur dans le classement ======
-      let modeSuppression = false;
-      let suppressionEnCours = null;
-
-      function lancerModeSuppression() {
-        if (!estDeveloppeur()) return;
-        fermerPanneauDev();
-        modeSuppression = true;
-        closeHubSubmenu();
-        document.getElementById("hubLeaderboardMenu").style.display = "flex";
-        chargerClassement().catch(() => {});
-        messageDev("Clique sur le joueur à supprimer");
-      }
-
-      function quitterModeSuppression() {
-        modeSuppression = false;
-        if (suppressionEnCours) {
-          clearInterval(suppressionEnCours.minuteur);
-          suppressionEnCours = null;
-        }
-        chargerClassement().catch(() => {});
-      }
-
-      // Compte a rebours de 10 secondes, annulable
-      function demanderSuppression(id, pseudo) {
-        if (suppressionEnCours) return;
-        const ligne = document.getElementById("ligne_score_" + id);
-        if (ligne) {
-          ligne.style.outline = "3px solid #e74c3c";
-          ligne.style.background = "rgba(231,76,60,.15)";
-        }
-
-        let reste = 10;
-        const zone = document.getElementById("bandeauSuppression");
-        const maj = () => {
-          if (zone) {
-            zone.innerHTML =
-              "<span style='flex:1'>Suppression de <b>" + echapper(pseudo) +
-              "</b> dans <b style='color:#e74c3c;font-size:16px'>" + reste +
-              "</b> s</span>" +
-              "<button onclick='annulerSuppression()' style='padding:7px 15px;" +
-              "background:#fff;border:none;border-radius:7px;color:#111;" +
-              "font-weight:bold;cursor:pointer'>Annuler</button>";
-            zone.style.display = "flex";
-          }
-        };
-        maj();
-
-        const minuteur = setInterval(async () => {
-          reste--;
-          if (reste > 0) return maj();
-          clearInterval(minuteur);
-          suppressionEnCours = null;
-          if (zone) zone.style.display = "none";
-          await executerSuppression(id, pseudo);
-        }, 1000);
-
-        suppressionEnCours = { id: id, minuteur: minuteur };
-      }
-
-      function annulerSuppression() {
-        if (!suppressionEnCours) return;
-        clearInterval(suppressionEnCours.minuteur);
-        suppressionEnCours = null;
-        const zone = document.getElementById("bandeauSuppression");
-        if (zone) zone.style.display = "none";
-        messageDev("Suppression annulée");
-        chargerClassement().catch(() => {});
-      }
-
-      async function executerSuppression(id, pseudo) {
-        try {
-          const r = await fetch(SUPABASE_URL + "/rest/v1/rpc/supprimer_score", {
-            method: "POST",
-            headers: headersAuth(),
-            body: JSON.stringify({ p_id: id }),
-          });
-          if (!r.ok) throw new Error(await r.text());
-          messageDev("Score de " + pseudo + " supprimé");
-        } catch (e) {
-          alert("Suppression impossible. Vérifie que le SQL est installé.");
-          console.error(e);
-        }
-        modeSuppression = false;
-        chargerClassement().catch(() => {});
-        chargerPodium().catch(() => {});
+          "color:#888;font-size:25px;cursor:pointer;line-height:1'>&times;</button></div>" +
+          "<p style='color:#666;font-size:12px;margin-bottom:16px'>" +
+          "Touche I pour ouvrir ou fermer</p>" +
+          reglages +
+          "<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));" +
+          "gap:11px'>" + cartes + "</div></div>";
       }
 
       function initRaccourcisDev() {
