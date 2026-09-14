@@ -9853,7 +9853,21 @@
       }
 
       // Ouvrir les paramètres du hub
+      // Remet les interrupteurs dans l'etat reellement enregistre
+      function synchroniserReglages() {
+        const r = permanentData.settings || {};
+        const son = document.getElementById("settingSound");
+        const mus = document.getElementById("settingMusic");
+        const vib = document.getElementById("settingVibration");
+        if (son) son.checked = r.sound !== false;
+        if (mus) mus.checked = r.music !== false;
+        if (vib) vib.checked = r.vibration !== false;
+        sfxEnabled = r.sound !== false;
+        musicEnabled = r.music !== false;
+      }
+
       function openHubSettings() {
+        synchroniserReglages();
         closeHubSubmenu();
         document.getElementById("hubSettingsMenu").style.display = "flex";
       }
@@ -9976,14 +9990,29 @@
         const enabled = document.getElementById("settingSound").checked;
         permanentData.settings = permanentData.settings || {};
         permanentData.settings.sound = enabled;
+        sfxEnabled = enabled; // applique le reglage immediatement
         savePermanentData();
+        showHubMessage(enabled ? "🔊 Son activé" : "🔇 Son coupé");
       }
 
       function toggleMusic() {
         const enabled = document.getElementById("settingMusic").checked;
         permanentData.settings = permanentData.settings || {};
         permanentData.settings.music = enabled;
+        musicEnabled = enabled;
+        // Demarrer ou couper la musique tout de suite
+        if (!enabled) {
+          if (typeof stopBackgroundMusic === "function") stopBackgroundMusic();
+        } else if (gameActive && typeof startBackgroundMusic === "function") {
+          startBackgroundMusic();
+        }
+        // Garder le bouton ON/OFF du jeu coherent
+        if (typeof musicToggle !== "undefined" && musicToggle) {
+          musicToggle.textContent = enabled ? "ON" : "OFF";
+          musicToggle.className = "audio-toggle " + (enabled ? "on" : "off");
+        }
         savePermanentData();
+        showHubMessage(enabled ? "🎵 Musique activée" : "🎵 Musique coupée");
       }
 
       function toggleVibration() {
@@ -9991,6 +10020,9 @@
         permanentData.settings = permanentData.settings || {};
         permanentData.settings.vibration = enabled;
         savePermanentData();
+        // Petit retour tactile pour confirmer, si l'appareil le permet
+        if (enabled && navigator.vibrate) navigator.vibrate(60);
+        showHubMessage(enabled ? "📳 Vibrations activées" : "📳 Vibrations coupées");
       }
 
       function resetProgress() {
@@ -10153,6 +10185,12 @@
       }
       window.addEventListener("DOMContentLoaded", initContactButton);
       window.addEventListener("DOMContentLoaded", initRaccourcisDev);
+      window.addEventListener("DOMContentLoaded", () => {
+        // Les preferences audio doivent s'appliquer des le lancement
+        const r = permanentData.settings || {};
+        sfxEnabled = r.sound !== false;
+        musicEnabled = r.music !== false;
+      });
       window.addEventListener("DOMContentLoaded", () => {
         // La session ne doit jamais bloquer le lancement du jeu
         initSession().catch((e) => console.error("session :", e));
