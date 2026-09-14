@@ -1344,20 +1344,20 @@
       }
 
       /* ENNEMIS - Style 3D */
-      /* Sprites pixel art (pack SnowHex) : cases de 20x22,
+      /* Sprites pixel art (pack SnowHex) : cases carrees de 32x32,
          8 images d'animation, 4 lignes pour les 4 directions.
          Les tailles ci-dessous sont des multiples de la case
          pour garder le rendu pixel net. */
       .enemy {
         position: absolute;
-        width: 40px;
+        width: 40px; /* case de 32px agrandie x1.25 */
         height: 40px;
         margin-left: -20px;
         margin-top: -20px;
         image-rendering: pixelated;
         background-image: url("sprites/run.png");
         background-repeat: no-repeat;
-        background-size: 320px 160px; /* 8 cases de 40 et 4 lignes de 40 */
+        background-size: 320px 160px; /* 8 colonnes x 40, 4 lignes x 40 */
         animation: marcheZombie 0.6s steps(8) infinite;
         transition: none;
         filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.6));
@@ -1375,25 +1375,24 @@
 
       /* Zombie rapide : plus petit, plus pale, plus nerveux */
       .enemy.fast-zombie {
-        width: 32px;
-        height: 32px;
-        margin-left: -16px;
-        margin-top: -16px;
-        background-size: 256px 128px;
+        width: 30px;
+        height: 30px;
+        margin-left: -15px;
+        margin-top: -15px;
+        background-size: 240px 120px;
         animation-name: marcheRapide;
         animation-duration: 0.35s;
-        /* Teinte jaune malade, plus clair : on le repere vite */
         filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.6))
-          hue-rotate(-55deg) saturate(2) brightness(1.35) contrast(1.1);
+          hue-rotate(-40deg) saturate(1.6) brightness(1.2);
       }
       @keyframes marcheRapide {
         from { background-position-x: 0; }
-        to { background-position-x: -256px; }
+        to { background-position-x: -240px; }
       }
       .enemy.fast-zombie.dir-bas { background-position-y: 0; }
-      .enemy.fast-zombie.dir-gauche { background-position-y: -32px; }
-      .enemy.fast-zombie.dir-haut { background-position-y: -64px; }
-      .enemy.fast-zombie.dir-droite { background-position-y: -96px; }
+      .enemy.fast-zombie.dir-gauche { background-position-y: -30px; }
+      .enemy.fast-zombie.dir-haut { background-position-y: -60px; }
+      .enemy.fast-zombie.dir-droite { background-position-y: -90px; }
 
       /* Zombie tank : massif, sombre, lent */
       .enemy.tank-zombie {
@@ -1404,9 +1403,8 @@
         background-size: 480px 240px;
         animation-name: marcheTank;
         animation-duration: 1.1s;
-        /* Bleu acier sombre : lourd et menacant */
-        filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.8))
-          hue-rotate(175deg) saturate(0.65) brightness(0.62) contrast(1.2);
+        filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.75))
+          hue-rotate(160deg) saturate(0.8) brightness(0.75);
       }
       @keyframes marcheTank {
         from { background-position-x: 0; }
@@ -1426,19 +1424,8 @@
         background-size: 800px 400px;
         animation-name: marcheBoss;
         animation-duration: 0.9s;
-        /* Violet sature, halo qui pulse pour le rendre spectaculaire */
-        filter: drop-shadow(0 0 12px rgba(155, 89, 182, 0.9))
-          drop-shadow(0 5px 7px rgba(0, 0, 0, 0.85))
-          hue-rotate(-105deg) saturate(2.2) contrast(1.25);
-        animation-name: marcheBoss, auraBoss;
-        animation-duration: 0.9s, 1.6s;
-        animation-timing-function: steps(8), ease-in-out;
-        animation-iteration-count: infinite, infinite;
-      }
-
-      @keyframes auraBoss {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.82; }
+        filter: drop-shadow(0 5px 7px rgba(0, 0, 0, 0.85))
+          hue-rotate(-95deg) saturate(1.8) contrast(1.15);
       }
       @keyframes marcheBoss {
         from { background-position-x: 0; }
