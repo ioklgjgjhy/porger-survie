@@ -9626,29 +9626,84 @@
           return;
         }
 
-        if (permanentData.usedCodes && permanentData.usedCodes.includes(code)) {
+        if (
+          permanentData.usedCodes &&
+          permanentData.usedCodes.some(
+            (c) => c.toUpperCase() === code.toUpperCase()
+          )
+        ) {
           message.className = "code-message error";
           message.textContent = "Code déjà utilisé!";
           return;
         }
 
-        if (code === "Erwan") {
-          // Bonus unique : 500$ pour UNE seule partie + gemmes permanentes
-          permanentData.bonusStartMoney = 300;
-          permanentData.gems += 250;
+        // ====== CODES PROMO ======
+        // A distribuer sur le Discord. Chaque code est utilisable
+        // une seule fois par joueur.
+        const CODES = {
+          PORGER2026: {
+            gemmes: 150,
+            argent: 300,
+            texte: "💎 +150 gemmes et 💰 300$ pour ta prochaine partie !",
+          },
+          BIENVENUE: {
+            pieces: 1500,
+            gemmes: 50,
+            texte: "💰 +1500 pièces et 💎 +50 gemmes !",
+          },
+          HORDE: {
+            argent: 800,
+            texte: "💰 800$ au départ de ta prochaine partie !",
+          },
+          SURVIVANT: {
+            pieces: 3000,
+            texte: "💰 +3000 pièces pour tes armures !",
+          },
+          GEMMES: {
+            gemmes: 300,
+            texte: "💎 +300 gemmes !",
+          },
+          DISCORD: {
+            pieces: 1000,
+            gemmes: 100,
+            argent: 200,
+            texte: "💰 +1000 pièces, 💎 +100 gemmes et 200$ au départ !",
+          },
+          BOSS: {
+            gemmes: 200,
+            pieces: 2000,
+            texte: "💎 +200 gemmes et 💰 +2000 pièces !",
+          },
+          ERWAN: {
+            gemmes: 250,
+            argent: 300,
+            texte: "💎 +250 gemmes et 💰 300$ pour ta prochaine partie !",
+          },
+        };
+
+        // Insensible a la casse pour eviter les erreurs de frappe
+        const cle = code.toUpperCase();
+        const recompense = CODES[cle];
+
+        if (recompense) {
+          if (recompense.pieces) permanentData.coins += recompense.pieces;
+          if (recompense.gemmes) permanentData.gems += recompense.gemmes;
+          if (recompense.argent) {
+            // Remplace le bonus precedent au lieu de s'additionner
+            permanentData.bonusStartMoney = recompense.argent;
+          }
 
           if (!permanentData.usedCodes) permanentData.usedCodes = [];
-          permanentData.usedCodes.push(code);
+          permanentData.usedCodes.push(cle);
           savePermanentData();
           updateHubDisplay();
 
           message.className = "code-message success";
-          message.textContent =
-            "💎 +250 gemmes et 💰 300$ pour ta prochaine partie !";
+          message.textContent = recompense.texte;
 
           setTimeout(() => {
             closeCodeMenu();
-          }, 2000);
+          }, 2200);
         } else {
           message.className = "code-message error";
           message.textContent = "Code invalide!";
