@@ -9297,6 +9297,23 @@
       // tout passe par un panneau visuel.
       let invincibiliteDev = false;
 
+      function ouvrirPanneauDev() {
+        if (!estDeveloppeur()) return;
+        const f = document.getElementById("panneauDev");
+        if (f && f.style.display === "flex") {
+          fermerPanneauDev();
+          return;
+        }
+        fermerAutresInterfaces("dev");
+        rendrePanneauDev();
+        document.getElementById("panneauDev").style.display = "flex";
+      }
+
+      function fermerPanneauDev() {
+        const f = document.getElementById("panneauDev");
+        if (f) f.style.display = "none";
+      }
+
       // ====== REGLAGES DU PANNEAU DEVELOPPEUR ======
       const REGLAGES_DEV = {
         vagues: 10,
