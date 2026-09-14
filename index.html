@@ -4254,6 +4254,7 @@
             <h2 class="submenu-title">🏆 Classement</h2>
           </div>
           <div class="submenu-content">
+            <div id="compteZone"></div>
             <div
               style="
                 display: flex;
@@ -4280,7 +4281,7 @@
                 "
               />
               <button
-                onclick="savePseudo()"
+                onclick="savePseudo().catch(console.error)"
                 style="
                   padding: 10px 18px;
                   border-radius: 8px;
@@ -8127,7 +8128,119 @@
         };
       }
 
-      function savePseudo() {
+      // ====== SESSION / COMPTE GOOGLE ======
+      // Le jeu se joue sans compte. La connexion sert a garder sa
+      // progression et a apparaitre dans le classement.
+      let sessionUtilisateur = null; // { token, id, email }
+
+      function headersAuth() {
+        const h = {
+          apikey: SUPABASE_KEY,
+          "Content-Type": "application/json",
+        };
+        h.Authorization =
+          "Bearer " + (sessionUtilisateur ? sessionUtilisateur.token : SUPABASE_KEY);
+        return h;
+      }
+
+      // Lit le jeton renvoye par Google dans l'adresse de la page
+      function lireRetourGoogle() {
+        if (!location.hash || location.hash.indexOf("access_token") === -1) return null;
+        const p = new URLSearchParams(location.hash.substring(1));
+        const token = p.get("access_token");
+        if (!token) return null;
+        // Nettoyer l'adresse pour ne pas laisser le jeton visible
+        history.replaceState(null, "", location.pathname + location.search);
+        return token;
+      }
+
+      async function recupererUtilisateur(token) {
+        const r = await fetch(SUPABASE_URL + "/auth/v1/user", {
+          headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + token },
+        });
+        if (!r.ok) throw new Error("session invalide");
+        const u = await r.json();
+        return { token: token, id: u.id, email: u.email };
+      }
+
+      function memoriserSession(token) {
+        try {
+          localStorage.setItem("porgerSession", token);
+        } catch (e) {}
+      }
+
+      async function initSession() {
+        let token = lireRetourGoogle();
+        if (token) memoriserSession(token);
+        if (!token) {
+          try {
+            token = localStorage.getItem("porgerSession");
+          } catch (e) {}
+        }
+        if (!token) return;
+
+        try {
+          sessionUtilisateur = await recupererUtilisateur(token);
+          await chargerProfil();
+        } catch (e) {
+          // Jeton expire : on repart en mode invite, sans bloquer le jeu
+          sessionUtilisateur = null;
+          try {
+            localStorage.removeItem("porgerSession");
+          } catch (e2) {}
+        }
+        majAffichageCompte();
+      }
+
+      function connexionGoogle() {
+        const retour = encodeURIComponent(location.origin + location.pathname);
+        location.href =
+          SUPABASE_URL +
+          "/auth/v1/authorize?provider=google&redirect_to=" +
+          retour;
+      }
+
+      function deconnexion() {
+        sessionUtilisateur = null;
+        try {
+          localStorage.removeItem("porgerSession");
+        } catch (e) {}
+        majAffichageCompte();
+        showHubMessage("Déconnecté. Ta progression reste sur cet appareil.");
+      }
+
+      // ====== PROFIL ET SAUVEGARDE EN LIGNE ======
+      async function chargerProfil() {
+        if (!sessionUtilisateur) return;
+        const r = await fetch(
+          SUPABASE_URL + "/rest/v1/profils?select=pseudo,sauvegarde&id=eq." +
+            sessionUtilisateur.id,
+          { headers: headersAuth() }
+        );
+        if (!r.ok) return;
+        const lignes = await r.json();
+        if (!lignes.length) return; // pas encore de pseudo choisi
+
+        permanentData.pseudo = lignes[0].pseudo;
+        if (lignes[0].sauvegarde) {
+          // La sauvegarde du cloud remplace celle de l'appareil
+          Object.assign(permanentData, lignes[0].sauvegarde);
+          savePermanentData();
+          updateHubDisplay();
+        }
+      }
+
+      async function verifierPseudoLibre(pseudo) {
+        const r = await fetch(SUPABASE_URL + "/rest/v1/rpc/pseudo_libre", {
+          method: "POST",
+          headers: headersAuth(),
+          body: JSON.stringify({ p_pseudo: pseudo }),
+        });
+        if (!r.ok) throw new Error("verification impossible");
+        return await r.json();
+      }
+
+      async function savePseudo() {
         const input = document.getElementById("pseudoInput");
         const msg = document.getElementById("pseudoMessage");
         const pseudo = input.value.trim();
@@ -8137,18 +8250,149 @@
           msg.textContent = "Le pseudo doit faire entre 2 et 20 caractères.";
           return;
         }
-        permanentData.pseudo = pseudo;
-        savePermanentData();
-        msg.style.color = "#2ecc71";
-        msg.textContent = "Pseudo enregistré : " + pseudo;
+
+        // Sans compte : le pseudo reste sur l'appareil
+        if (!sessionUtilisateur) {
+          permanentData.pseudo = pseudo;
+          savePermanentData();
+          msg.style.color = "#f1c40f";
+          msg.textContent =
+            "Pseudo enregistré sur cet appareil. Connecte-toi pour le réserver.";
+          return;
+        }
+
+        msg.style.color = "#888";
+        msg.textContent = "Vérification…";
+
+        try {
+          // Si le pseudo est deja le sien, rien a verifier
+          if (permanentData.pseudo !== pseudo) {
+            const libre = await verifierPseudoLibre(pseudo);
+            if (!libre) {
+              msg.style.color = "#e74c3c";
+              msg.textContent = "Ce pseudo est déjà pris. Choisis-en un autre.";
+              return;
+            }
+          }
+
+          const r = await fetch(SUPABASE_URL + "/rest/v1/profils", {
+            method: "POST",
+            headers: Object.assign(headersAuth(), {
+              Prefer: "resolution=merge-duplicates",
+            }),
+            body: JSON.stringify({
+              id: sessionUtilisateur.id,
+              pseudo: pseudo,
+            }),
+          });
+          if (!r.ok) throw new Error("HTTP " + r.status);
+
+          permanentData.pseudo = pseudo;
+          savePermanentData();
+          msg.style.color = "#2ecc71";
+          msg.textContent = "Pseudo réservé : " + pseudo;
+          majAffichageCompte();
+        } catch (e) {
+          msg.style.color = "#e74c3c";
+          msg.textContent = "Enregistrement impossible pour le moment.";
+          console.error("savePseudo :", e);
+        }
       }
 
-      async function openHubLeaderboard() {
+      // Envoie la progression dans le cloud (apres chaque partie)
+      async function sauvegarderEnLigne() {
+        if (!sessionUtilisateur || !permanentData.pseudo) return;
+        try {
+          await fetch(
+            SUPABASE_URL + "/rest/v1/profils?id=eq." + sessionUtilisateur.id,
+            {
+              method: "PATCH",
+              headers: headersAuth(),
+              body: JSON.stringify({ sauvegarde: permanentData }),
+            }
+          );
+        } catch (e) {
+          console.error("sauvegarde en ligne :", e);
+        }
+      }
+
+      // Remet la progression a zero en gardant le compte Google
+      async function reinitialiserCompte() {
+        const ok = confirm(
+          "Repartir de zéro ?\n\n" +
+            "Toute ta progression sera effacée (pièces, gemmes, armures, " +
+            "compétences, équipement).\n" +
+            "Ton compte et ton pseudo sont conservés, ainsi que tes scores " +
+            "déjà envoyés au classement."
+        );
+        if (!ok) return;
+
+        if (sessionUtilisateur) {
+          try {
+            await fetch(SUPABASE_URL + "/rest/v1/rpc/reinitialiser_progression", {
+              method: "POST",
+              headers: headersAuth(),
+              body: "{}",
+            });
+          } catch (e) {
+            console.error("reinit en ligne :", e);
+          }
+        }
+
+        const pseudo = permanentData.pseudo;
+        try {
+          localStorage.removeItem("towerDefenseSave");
+        } catch (e) {}
+        alert("Progression remise à zéro.");
+        location.reload();
+      }
+
+      function majAffichageCompte() {
+        const zone = document.getElementById("compteZone");
+        if (!zone) return;
+
+        if (sessionUtilisateur) {
+          zone.innerHTML =
+            "<div style='background:rgba(46,204,113,0.1);border:1px solid #2ecc71;" +
+            "border-radius:10px;padding:12px;margin-bottom:14px'>" +
+            "<p style='color:#2ecc71;font-size:14px;margin-bottom:8px'>" +
+            "\u2713 Connecté" +
+            (permanentData.pseudo
+              ? " en tant que <b>" + echapper(permanentData.pseudo) + "</b>"
+              : " — choisis ton pseudo ci-dessous") +
+            "</p>" +
+            "<div style='display:flex;gap:8px;flex-wrap:wrap'>" +
+            "<button onclick='deconnexion()' style='padding:7px 14px;border:none;" +
+            "border-radius:7px;background:#555;color:#fff;cursor:pointer;font-size:13px'>" +
+            "Se déconnecter</button>" +
+            "<button onclick='reinitialiserCompte()' style='padding:7px 14px;border:none;" +
+            "border-radius:7px;background:#c0392b;color:#fff;cursor:pointer;font-size:13px'>" +
+            "Repartir de zéro</button></div></div>";
+        } else {
+          zone.innerHTML =
+            "<div style='background:rgba(52,152,219,0.1);border:1px solid #3498db;" +
+            "border-radius:10px;padding:12px;margin-bottom:14px'>" +
+            "<p style='color:#ddd;font-size:13px;margin-bottom:10px'>" +
+            "Tu joues sans compte. Connecte-toi pour réserver ton pseudo, " +
+            "garder ta progression et apparaître au classement.</p>" +
+            "<button onclick='connexionGoogle()' style='padding:9px 16px;border:none;" +
+            "border-radius:7px;background:#fff;color:#333;font-weight:bold;" +
+            "cursor:pointer;font-size:14px'>Se connecter avec Google</button></div>";
+        }
+      }
+
+      function openHubLeaderboard() {
         closeHubSubmenu();
         document.getElementById("hubLeaderboardMenu").style.display = "flex";
         document.getElementById("pseudoInput").value = permanentData.pseudo || "";
         document.getElementById("pseudoMessage").textContent = "";
-        await chargerClassement();
+        try {
+          majAffichageCompte();
+        } catch (e) {
+          console.error("affichage compte :", e);
+        }
+        // Le classement ne doit jamais casser l'ouverture de l'ecran
+        chargerClassement().catch((e) => console.error("classement :", e));
       }
 
       async function chargerClassement() {
@@ -8217,8 +8461,9 @@
         try {
           await fetch(SUPABASE_URL + "/rest/v1/scores", {
             method: "POST",
-            headers: supabaseHeaders(),
+            headers: headersAuth(),
             body: JSON.stringify({
+              joueur_id: sessionUtilisateur ? sessionUtilisateur.id : null,
               pseudo: permanentData.pseudo,
               vague: resultat.vague,
               niveau: resultat.niveau,
@@ -8845,6 +9090,10 @@
         }
       }
       window.addEventListener("DOMContentLoaded", initContactButton);
+      window.addEventListener("DOMContentLoaded", () => {
+        // La session ne doit jamais bloquer le lancement du jeu
+        initSession().catch((e) => console.error("session :", e));
+      });
 
 
       // ========== SYSTÈME DE FRÉQUENCE ÉCRAN ==========
@@ -10364,7 +10613,8 @@
         checkIntegrity();
         logWaveSnapshot();
         window.dernierResultat = buildRunResult();
-        envoyerScore(window.dernierResultat);
+        envoyerScore(window.dernierResultat).catch(() => {});
+        sauvegarderEnLigne().catch(() => {});
 
         // Progression des defis de la semaine
         preparerDefisSemaine();
