@@ -4134,6 +4134,21 @@
       <!-- ========== HUB / LOBBY (Archero-like) ========== -->
       <div id="gameHub">
         <div id="hubBackground"></div>
+        <div
+          id="podiumHub"
+          style="
+            position: absolute;
+            top: 90px;
+            right: 18px;
+            width: 210px;
+            background: rgba(20, 20, 45, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 12px 14px;
+            z-index: 3;
+            display: none;
+          "
+        ></div>
         <div class="hub-header">
           <div class="hub-currency">
             <div class="currency-box coins">
@@ -7101,6 +7116,8 @@
         mainMenu.style.display = "none";
         gameHub.style.display = "flex";
         initHubBackground();
+        chargerPodium().catch(() => {});
+        afficherBadgeDev();
       }
 
       // Fermer le hub et retourner au menu
@@ -8133,6 +8150,12 @@
       // progression et a apparaitre dans le classement.
       let sessionUtilisateur = null; // { token, id, email }
 
+      // Compte developpeur : acces aux raccourcis de test
+      const ID_DEVELOPPEUR = "236a066a-08c4-4a71-b6f9-ec7855b8834e";
+      function estDeveloppeur() {
+        return sessionUtilisateur && sessionUtilisateur.id === ID_DEVELOPPEUR;
+      }
+
       function headersAuth() {
         const h = {
           apikey: SUPABASE_KEY,
@@ -8190,6 +8213,8 @@
           } catch (e2) {}
         }
         majAffichageCompte();
+        afficherBadgeDev();
+        chargerPodium().catch(() => {});
       }
 
       function connexionGoogle() {
@@ -8839,6 +8864,142 @@
         showHubMessage("🔥 Renaissance " + niv + " ! Bonus permanent : +" + niv * 10 + "%");
       }
 
+
+      // ====== RACCOURCIS DEVELOPPEUR ======
+      // Actifs uniquement pour le compte developpeur connecte.
+      // F9  : sauter a la vague 50
+      // F10 : +10 000 pieces et +500 gemmes
+      // F11 : invincibilite (bascule)
+      // F8  : tuer tous les zombies a l'ecran
+      let invincibiliteDev = false;
+
+      function initRaccourcisDev() {
+        document.addEventListener("keydown", (e) => {
+          if (!estDeveloppeur()) return;
+          const touches = ["F8", "F9", "F10", "F11"];
+          if (!touches.includes(e.key)) return;
+          e.preventDefault();
+
+          if (e.key === "F9") {
+            if (!gameActive) {
+              messageDev("Lance une partie d'abord");
+              return;
+            }
+            if (spawnTimerId) clearTimeout(spawnTimerId);
+            enemies.forEach((en) => en.element.remove());
+            enemies = [];
+            waveEnemiesRemaining = 0;
+            waveInProgress = false;
+            bossActive = false;
+            playerLevel = Math.max(playerLevel, 25);
+            currentWave = 49;
+            startWave(); // lance directement la vague 50
+            messageDev("Passage a la vague 50");
+          } else if (e.key === "F10") {
+            permanentData.coins += 10000;
+            permanentData.gems += 500;
+            savePermanentData();
+            updateHubDisplay();
+            messageDev("+10 000 pieces et +500 gemmes");
+          } else if (e.key === "F11") {
+            invincibiliteDev = !invincibiliteDev;
+            messageDev(
+              invincibiliteDev ? "Invincibilite activee" : "Invincibilite desactivee"
+            );
+          } else if (e.key === "F8") {
+            if (!gameActive) return;
+            const nb = enemies.length;
+            [...enemies].forEach((en) => damageEnemy(en, 999999));
+            messageDev(nb + " zombies eliminés");
+          }
+        });
+      }
+
+      function messageDev(texte) {
+        let b = document.getElementById("bandeauDev");
+        if (!b) {
+          b = document.createElement("div");
+          b.id = "bandeauDev";
+          b.style.cssText =
+            "position:fixed;top:10px;left:50%;transform:translateX(-50%);" +
+            "background:#8e44ad;color:#fff;padding:8px 18px;border-radius:8px;" +
+            "font-weight:bold;font-size:14px;z-index:99999;box-shadow:0 4px 14px rgba(0,0,0,.5)";
+          document.body.appendChild(b);
+        }
+        b.textContent = "\u2699\ufe0f " + texte;
+        b.style.display = "block";
+        clearTimeout(b.timer);
+        b.timer = setTimeout(() => (b.style.display = "none"), 2200);
+      }
+
+      // Rappel des raccourcis, visible seulement pour le developpeur
+      function afficherBadgeDev() {
+        let d = document.getElementById("badgeDev");
+        if (!estDeveloppeur()) {
+          if (d) d.remove();
+          return;
+        }
+        if (d) return;
+        d = document.createElement("div");
+        d.id = "badgeDev";
+        d.style.cssText =
+          "position:fixed;bottom:34px;right:10px;background:rgba(142,68,173,.9);" +
+          "color:#fff;padding:6px 10px;border-radius:7px;font-size:11px;" +
+          "z-index:9998;line-height:1.5;pointer-events:none";
+        d.innerHTML =
+          "<b>Mode développeur</b><br>F8 tuer · F9 vague 50<br>F10 ressources · F11 invincible";
+        document.body.appendChild(d);
+      }
+
+      // ====== PODIUM DANS LE HUB ======
+      async function chargerPodium() {
+        const zone = document.getElementById("podiumHub");
+        if (!zone) return;
+        try {
+          const url =
+            SUPABASE_URL +
+            "/rest/v1/scores?select=pseudo,vague,temps&valide=eq.true" +
+            "&order=vague.desc,temps.desc&limit=3";
+          const r = await fetch(url, { headers: supabaseHeaders() });
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          const top = await r.json();
+          if (!top.length) {
+            zone.style.display = "none";
+            return;
+          }
+
+          const medailles = ["\ud83e\udd47", "\ud83e\udd48", "\ud83e\udd49"];
+          const couleurs = ["#f1c40f", "#bdc3c7", "#cd7f32"];
+          let html =
+            "<div style='font-size:12px;color:#888;margin-bottom:8px;" +
+            "text-transform:uppercase;letter-spacing:1px'>Meilleurs joueurs</div>";
+
+          top.forEach((j, i) => {
+            const moi = j.pseudo === permanentData.pseudo;
+            const initiale = (j.pseudo || "?").charAt(0).toUpperCase();
+            html +=
+              "<div style='display:flex;align-items:center;gap:8px;padding:6px 0;" +
+              (moi ? "background:rgba(241,196,15,.08);border-radius:6px;" : "") +
+              "'>" +
+              "<span style='font-size:16px'>" + medailles[i] + "</span>" +
+              "<span style='width:26px;height:26px;border-radius:50%;background:" +
+              couleurs[i] + ";color:#111;display:flex;align-items:center;" +
+              "justify-content:center;font-weight:bold;font-size:13px;flex-shrink:0'>" +
+              echapper(initiale) + "</span>" +
+              "<span style='flex:1;font-size:13px;color:" +
+              (moi ? "#f1c40f" : "#ddd") + ";overflow:hidden;text-overflow:ellipsis;" +
+              "white-space:nowrap'>" + echapper(j.pseudo) + "</span>" +
+              "<span style='font-size:12px;color:#2ecc71;font-weight:bold'>V" +
+              j.vague + "</span></div>";
+          });
+          zone.innerHTML = html;
+          zone.style.display = "block";
+        } catch (e) {
+          zone.style.display = "none";
+          console.error("podium :", e);
+        }
+      }
+
       function openHubStats() {
         closeHubSubmenu();
         updateHubDisplay();
@@ -8888,7 +9049,7 @@
 
         if (code === "Erwan") {
           // Bonus unique : 500$ pour UNE seule partie + gemmes permanentes
-          permanentData.bonusStartMoney = 500;
+          permanentData.bonusStartMoney = 300;
           permanentData.gems += 250;
 
           if (!permanentData.usedCodes) permanentData.usedCodes = [];
@@ -8898,7 +9059,7 @@
 
           message.className = "code-message success";
           message.textContent =
-            "💎 +250 gemmes et 💰 500$ pour ta prochaine partie !";
+            "💎 +250 gemmes et 💰 300$ pour ta prochaine partie !";
 
           setTimeout(() => {
             closeCodeMenu();
@@ -9090,6 +9251,7 @@
         }
       }
       window.addEventListener("DOMContentLoaded", initContactButton);
+      window.addEventListener("DOMContentLoaded", initRaccourcisDev);
       window.addEventListener("DOMContentLoaded", () => {
         // La session ne doit jamais bloquer le lancement du jeu
         initSession().catch((e) => console.error("session :", e));
@@ -10007,6 +10169,8 @@
         // UI - Afficher le hub
         gameHub.style.display = "flex";
         initHubBackground();
+        chargerPodium().catch(() => {});
+        afficherBadgeDev();
         updateHubDisplay();
         hud.style.display = "none";
         statsDiv.style.display = "none";
@@ -10566,7 +10730,7 @@
               const earlyWaveFactor = currentWave <= 2 ? 0.5 : 1;
               const actualDamage =
                 enemy.damage * (1 - damageReduction) * earlyWaveFactor;
-              playerHealth -= actualDamage;
+              if (!invincibiliteDev) playerHealth -= actualDamage;
               enemy.lastDamageTime = currentTime;
               playHurtSound();
               updateHealth();
@@ -10805,6 +10969,8 @@
         updateHubDisplay();
         gameHub.style.display = "flex";
         initHubBackground();
+        chargerPodium().catch(() => {});
+        afficherBadgeDev();
       }
 
       // Afficher popup +1G
