@@ -2738,9 +2738,11 @@
         animation: marcheZombie 0.8s steps(8) infinite;
       }
 
+      /* 8 colonnes : le pas vaut 100/7, donc on va jusqu'a 114.2857%
+         pour que les 8 images tombent exactement sur 0 ... 100% */
       @keyframes marcheZombie {
         from { background-position-x: 0%; }
-        to { background-position-x: -800%; }
+        to { background-position-x: 114.2857%; }
       }
 
       /* Direction : on change la ligne de la feuille */
