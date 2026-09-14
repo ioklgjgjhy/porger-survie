@@ -8195,15 +8195,40 @@
         return h;
       }
 
-      // Lit le jeton renvoye par Google dans l'adresse de la page
+      // Lit les jetons renvoyes par Google dans l'adresse de la page
       function lireRetourGoogle() {
         if (!location.hash || location.hash.indexOf("access_token") === -1) return null;
         const p = new URLSearchParams(location.hash.substring(1));
         const token = p.get("access_token");
         if (!token) return null;
-        // Nettoyer l'adresse pour ne pas laisser le jeton visible
+        const refresh = p.get("refresh_token");
+        // Nettoyer l'adresse pour ne pas laisser les jetons visibles
         history.replaceState(null, "", location.pathname + location.search);
-        return token;
+        return { token: token, refresh: refresh };
+      }
+
+      // Le jeton d'acces expire au bout d'une heure : on le renouvelle
+      // avec le jeton de rafraichissement, sinon le joueur serait deconnecte.
+      async function renouvelerJeton() {
+        let refresh = null;
+        try {
+          refresh = localStorage.getItem("porgerRefresh");
+        } catch (e) {}
+        if (!refresh) return null;
+
+        const r = await fetch(
+          SUPABASE_URL + "/auth/v1/token?grant_type=refresh_token",
+          {
+            method: "POST",
+            headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+            body: JSON.stringify({ refresh_token: refresh }),
+          }
+        );
+        if (!r.ok) return null;
+        const d = await r.json();
+        if (!d.access_token) return null;
+        memoriserSession(d.access_token, d.refresh_token);
+        return d.access_token;
       }
 
       async function recupererUtilisateur(token) {
@@ -8215,16 +8240,20 @@
         return { token: token, id: u.id, email: u.email };
       }
 
-      function memoriserSession(token) {
+      function memoriserSession(token, refresh) {
         try {
           localStorage.setItem("porgerSession", token);
+          if (refresh) localStorage.setItem("porgerRefresh", refresh);
         } catch (e) {}
       }
 
       async function initSession() {
-        let token = lireRetourGoogle();
-        if (token) memoriserSession(token);
-        if (!token) {
+        const retour = lireRetourGoogle();
+        let token = null;
+        if (retour) {
+          token = retour.token;
+          memoriserSession(retour.token, retour.refresh);
+        } else {
           try {
             token = localStorage.getItem("porgerSession");
           } catch (e) {}
@@ -8233,13 +8262,28 @@
 
         try {
           sessionUtilisateur = await recupererUtilisateur(token);
-          await chargerProfil();
         } catch (e) {
-          // Jeton expire : on repart en mode invite, sans bloquer le jeu
-          sessionUtilisateur = null;
+          // Jeton expire : on tente de le renouveler avant d'abandonner
+          try {
+            const neuf = await renouvelerJeton();
+            if (neuf) {
+              sessionUtilisateur = await recupererUtilisateur(neuf);
+            }
+          } catch (e2) {}
+        }
+
+        if (!sessionUtilisateur) {
+          // Session definitivement perdue : mode invite, le jeu reste jouable
           try {
             localStorage.removeItem("porgerSession");
-          } catch (e2) {}
+            localStorage.removeItem("porgerRefresh");
+          } catch (e3) {}
+        } else {
+          try {
+            await chargerProfil();
+          } catch (e4) {
+            console.error("profil :", e4);
+          }
         }
         majAffichageCompte();
         afficherBadgeDev();
@@ -8258,6 +8302,7 @@
         sessionUtilisateur = null;
         try {
           localStorage.removeItem("porgerSession");
+          localStorage.removeItem("porgerRefresh");
         } catch (e) {}
         majAffichageCompte();
         showHubMessage("Déconnecté. Ta progression reste sur cet appareil.");
@@ -8894,26 +8939,19 @@
       }
 
 
-      // ====== RACCOURCIS DEVELOPPEUR ======
-      // Actifs uniquement pour le compte developpeur connecte.
-      // F9  : sauter a la vague 50
-      // F10 : +10 000 pieces et +500 gemmes
-      // F11 : invincibilite (bascule)
-      // F8  : tuer tous les zombies a l'ecran
+      // ====== PANNEAU DEVELOPPEUR (touche I) ======
+      // Reserve au compte developpeur. Aucun raccourci direct :
+      // tout passe par un panneau visuel.
       let invincibiliteDev = false;
 
-      function initRaccourcisDev() {
-        document.addEventListener("keydown", (e) => {
-          if (!estDeveloppeur()) return;
-          const touches = ["F8", "F9", "F10", "F11"];
-          if (!touches.includes(e.key)) return;
-          e.preventDefault();
-
-          if (e.key === "F9") {
-            if (!gameActive) {
-              messageDev("Lance une partie d'abord");
-              return;
-            }
+      const ACTIONS_DEV = [
+        {
+          icone: "\u23e9",
+          titre: "Vague 50",
+          detail: "Saute directement au boss",
+          couleur: "#e67e22",
+          action: () => {
+            if (!gameActive) return messageDev("Lance une partie d'abord");
             if (spawnTimerId) clearTimeout(spawnTimerId);
             enemies.forEach((en) => en.element.remove());
             enemies = [];
@@ -8922,25 +8960,153 @@
             bossActive = false;
             playerLevel = Math.max(playerLevel, 25);
             currentWave = 49;
-            startWave(); // lance directement la vague 50
+            startWave();
             messageDev("Passage a la vague 50");
-          } else if (e.key === "F10") {
+          },
+        },
+        {
+          icone: "\ud83d\udca5",
+          titre: "Tout tuer",
+          detail: "Elimine les zombies a l'ecran",
+          couleur: "#c0392b",
+          action: () => {
+            if (!gameActive) return messageDev("Lance une partie d'abord");
+            const nb = enemies.length;
+            [...enemies].forEach((en) => damageEnemy(en, 999999));
+            messageDev(nb + " zombies elimines");
+          },
+        },
+        {
+          icone: "\ud83d\udee1\ufe0f",
+          titre: "Invincible",
+          detail: "Active ou desactive les degats",
+          couleur: "#2980b9",
+          action: () => {
+            invincibiliteDev = !invincibiliteDev;
+            messageDev(
+              invincibiliteDev ? "Invincibilite activee" : "Invincibilite desactivee"
+            );
+            rendrePanneauDev();
+          },
+          etat: () => (invincibiliteDev ? "ON" : "OFF"),
+        },
+        {
+          icone: "\ud83d\udcb0",
+          titre: "Ressources",
+          detail: "+10 000 pieces, +500 gemmes",
+          couleur: "#f1c40f",
+          action: () => {
             permanentData.coins += 10000;
             permanentData.gems += 500;
             savePermanentData();
             updateHubDisplay();
             messageDev("+10 000 pieces et +500 gemmes");
-          } else if (e.key === "F11") {
-            invincibiliteDev = !invincibiliteDev;
-            messageDev(
-              invincibiliteDev ? "Invincibilite activee" : "Invincibilite desactivee"
-            );
-          } else if (e.key === "F8") {
-            if (!gameActive) return;
-            const nb = enemies.length;
-            [...enemies].forEach((en) => damageEnemy(en, 999999));
-            messageDev(nb + " zombies eliminés");
+          },
+        },
+        {
+          icone: "\u2b06\ufe0f",
+          titre: "Niveau +5",
+          detail: "Monte le niveau du joueur",
+          couleur: "#9b59b6",
+          action: () => {
+            if (!gameActive) return messageDev("Lance une partie d'abord");
+            playerLevel += 5;
+            messageDev("Niveau " + playerLevel);
+          },
+        },
+        {
+          icone: "\u2764\ufe0f",
+          titre: "Soin complet",
+          detail: "Remet les PV au maximum",
+          couleur: "#27ae60",
+          action: () => {
+            if (!gameActive) return messageDev("Lance une partie d'abord");
+            playerHealth = maxHealth;
+            updateHealth();
+            messageDev("PV restaures");
+          },
+        },
+      ];
+
+      function ouvrirPanneauDev() {
+        if (!estDeveloppeur()) return;
+        let f = document.getElementById("panneauDev");
+        if (f && f.style.display === "flex") {
+          f.style.display = "none";
+          return;
+        }
+        rendrePanneauDev();
+        document.getElementById("panneauDev").style.display = "flex";
+      }
+
+      function fermerPanneauDev() {
+        const f = document.getElementById("panneauDev");
+        if (f) f.style.display = "none";
+      }
+
+      function rendrePanneauDev() {
+        let f = document.getElementById("panneauDev");
+        if (!f) {
+          f = document.createElement("div");
+          f.id = "panneauDev";
+          f.style.cssText =
+            "position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:99998;" +
+            "display:none;align-items:center;justify-content:center;padding:20px";
+          f.addEventListener("click", (e) => {
+            if (e.target === f) fermerPanneauDev();
+          });
+          document.body.appendChild(f);
+        }
+
+        let cartes = "";
+        ACTIONS_DEV.forEach((a, i) => {
+          const etat = a.etat ? a.etat() : null;
+          cartes +=
+            "<button onclick='ACTIONS_DEV[" + i + "].action()' " +
+            "style='display:flex;flex-direction:column;align-items:center;gap:5px;" +
+            "background:linear-gradient(145deg,rgba(40,40,70,.95),rgba(22,22,45,.95));" +
+            "border:2px solid " + a.couleur + ";border-radius:13px;padding:15px 10px;" +
+            "cursor:pointer;transition:transform .15s;color:#fff' " +
+            "onmouseover='this.style.transform=\"translateY(-3px)\"' " +
+            "onmouseout='this.style.transform=\"none\"'>" +
+            "<span style='font-size:27px'>" + a.icone + "</span>" +
+            "<span style='font-weight:bold;font-size:14px;color:" + a.couleur + "'>" +
+            a.titre + (etat ? " \u00b7 " + etat : "") + "</span>" +
+            "<span style='font-size:11px;color:#999;text-align:center;line-height:1.3'>" +
+            a.detail + "</span></button>";
+        });
+
+        f.innerHTML =
+          "<div style='background:#12122a;border:2px solid #8e44ad;border-radius:17px;" +
+          "padding:22px;max-width:540px;width:100%;box-shadow:0 12px 45px rgba(0,0,0,.6)'>" +
+          "<div style='display:flex;align-items:center;gap:10px;margin-bottom:5px'>" +
+          "<span style='font-size:22px'>\u2699\ufe0f</span>" +
+          "<h2 style='color:#8e44ad;font-size:19px;margin:0;flex:1'>Panneau développeur</h2>" +
+          "<button onclick='fermerPanneauDev()' style='background:none;border:none;" +
+          "color:#888;font-size:25px;cursor:pointer;line-height:1'>&times;</button></div>" +
+          "<p style='color:#666;font-size:12px;margin-bottom:16px'>" +
+          "Touche I pour ouvrir ou fermer</p>" +
+          "<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));" +
+          "gap:11px'>" + cartes + "</div></div>";
+      }
+
+      function initRaccourcisDev() {
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") {
+            const f = document.getElementById("panneauDev");
+            if (f && f.style.display === "flex") {
+              e.preventDefault();
+              fermerPanneauDev();
+            }
+            return;
           }
+          if (e.key !== "i" && e.key !== "I") return;
+          // Ne pas declencher pendant la saisie d'un pseudo ou d'un code
+          const c = document.activeElement;
+          if (c && (c.tagName === "INPUT" || c.tagName === "TEXTAREA")) return;
+          if (!estDeveloppeur()) return;
+          e.preventDefault();
+          ouvrirPanneauDev();
         });
       }
 
@@ -8961,23 +9127,14 @@
         b.timer = setTimeout(() => (b.style.display = "none"), 2200);
       }
 
-      // Rappel des raccourcis, visible seulement pour le developpeur
+      // Plus d'encart permanent : simple rappel une fois par session
+      let rappelDevFait = false;
       function afficherBadgeDev() {
-        let d = document.getElementById("badgeDev");
-        if (!estDeveloppeur()) {
-          if (d) d.remove();
-          return;
-        }
-        if (d) return;
-        d = document.createElement("div");
-        d.id = "badgeDev";
-        d.style.cssText =
-          "position:fixed;bottom:34px;right:10px;background:rgba(142,68,173,.9);" +
-          "color:#fff;padding:6px 10px;border-radius:7px;font-size:11px;" +
-          "z-index:9998;line-height:1.5;pointer-events:none";
-        d.innerHTML =
-          "<b>Mode développeur</b><br>F8 tuer · F9 vague 50<br>F10 ressources · F11 invincible";
-        document.body.appendChild(d);
+        const ancien = document.getElementById("badgeDev");
+        if (ancien) ancien.remove();
+        if (!estDeveloppeur() || rappelDevFait) return;
+        rappelDevFait = true;
+        setTimeout(() => messageDev("Mode développeur — touche I"), 900);
       }
 
       // ====== PODIUM DANS LE HUB ======
