@@ -8549,10 +8549,10 @@
           const url =
             SUPABASE_URL +
             "/rest/v1/scores?select=id,pseudo,vague,temps,kills,cree_le" +
-            "&valide=eq.true&order=vague.desc,temps.desc&limit=20";
+            "&valide=eq.true&order=vague.desc,temps.desc&limit=300";
           const r = await fetch(url, { headers: supabaseHeaders() });
           if (!r.ok) throw new Error("HTTP " + r.status);
-          const scores = await r.json();
+          const scores = meilleursParJoueur(await r.json(), 20);
 
           if (!scores.length) {
             zone.innerHTML =
@@ -8695,6 +8695,26 @@
         });
 
         zone.innerHTML = html;
+      }
+
+      // Un joueur = une ligne : on ne garde que sa meilleure partie
+      // (la table contient une ligne par partie jouee)
+      function meilleursParJoueur(scores, limite) {
+        const parPseudo = new Map();
+        scores.forEach((sc) => {
+          const cle = (sc.pseudo || "").toLowerCase();
+          const actuel = parPseudo.get(cle);
+          if (
+            !actuel ||
+            sc.vague > actuel.vague ||
+            (sc.vague === actuel.vague && sc.temps > actuel.temps)
+          ) {
+            parPseudo.set(cle, sc);
+          }
+        });
+        return [...parPseudo.values()]
+          .sort((a, b) => b.vague - a.vague || b.temps - a.temps)
+          .slice(0, limite);
       }
 
       // Empeche l'injection de HTML via un pseudo
@@ -9354,10 +9374,10 @@
           const url =
             SUPABASE_URL +
             "/rest/v1/scores?select=pseudo,vague,temps&valide=eq.true" +
-            "&order=vague.desc,temps.desc&limit=" + limite;
+            "&order=vague.desc,temps.desc&limit=300";
           const r = await fetch(url, { headers: supabaseHeaders() });
           if (!r.ok) throw new Error("HTTP " + r.status);
-          const top = await r.json();
+          const top = meilleursParJoueur(await r.json(), limite);
           if (!top.length) {
             zone.style.display = "none";
             return;
