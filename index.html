@@ -4267,8 +4267,37 @@
           <div class="submenu-header">
             <button class="submenu-back" onclick="closeHubSubmenu()">←</button>
             <h2 class="submenu-title">🏆 Classement</h2>
+            <span
+              style="
+                margin-left: auto;
+                background: linear-gradient(135deg, #8e44ad, #c0392b);
+                color: #fff;
+                font-size: 11px;
+                font-weight: bold;
+                letter-spacing: 1px;
+                padding: 5px 11px;
+                border-radius: 20px;
+                white-space: nowrap;
+              "
+              title="Cette fonctionnalité est en cours de test, des bugs sont possibles"
+              >BÊTA</span
+            >
           </div>
           <div class="submenu-content">
+            <p
+              style="
+                background: rgba(142, 68, 173, 0.12);
+                border-left: 3px solid #8e44ad;
+                border-radius: 6px;
+                padding: 9px 12px;
+                margin-bottom: 14px;
+                font-size: 13px;
+                color: #ccc;
+              "
+            >
+              ⚗️ Classement en cours de test. Les scores peuvent être remis à
+              zéro et des bugs sont possibles.
+            </p>
             <div id="compteZone"></div>
             <div
               style="
@@ -8992,6 +9021,10 @@
               "<span style='font-size:12px;color:#2ecc71;font-weight:bold'>V" +
               j.vague + "</span></div>";
           });
+          html +=
+            "<div style='margin-top:9px;padding-top:7px;border-top:1px solid " +
+            "rgba(255,255,255,.08);font-size:10px;color:#8e44ad;" +
+            "letter-spacing:1px;text-align:center;font-weight:bold'>BÊTA</div>";
           zone.innerHTML = html;
           zone.style.display = "block";
         } catch (e) {
