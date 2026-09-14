@@ -5074,6 +5074,12 @@
       let gameStartTime = 0; // Heure de début de la partie
       let enemiesSpawnedTotal = 0; // total de zombies apparus (controle anti-triche)
       let itemsCollectedThisRun = 0; // objets ramasses (defis)
+      let achatsVague = []; // achats effectues depuis le debut de la vague
+
+      // Appele a chaque achat pour alimenter le journal de partie
+      function noterAchat(nom, prix) {
+        achatsVague.push({ nom: nom, prix: Math.round(prix) });
+      }
       let bossesKilledThisRun = 0; // boss vaincus (defis)
       const ADAPTATION_GRACE_PERIOD = 180000; // 3 minutes de grâce au début
 
@@ -5230,8 +5236,16 @@
           kills: kills,
           degats: Math.round(baseDamage),
           portee: Math.round(attackRange),
+          vitesse: Math.round(1000 / Math.max(1, attackSpeed) * 10) / 10,
           niveau: playerLevel,
+          zombiesApparus: enemiesSpawnedTotal,
+          tourelles: turrets.length,
+          orbitaux: orbitals.length,
+          // Ce que le joueur a acheté pendant la vague precedente
+          achats: achatsVague.slice(0, 12),
+          depense: achatsVague.reduce((t, a) => t + a.prix, 0),
         };
+        achatsVague = [];
 
         const precedent = runLog[runLog.length - 1];
         if (precedent) {
@@ -8532,7 +8546,7 @@
         try {
           const url =
             SUPABASE_URL +
-            "/rest/v1/scores?select=pseudo,vague,temps,kills,cree_le" +
+            "/rest/v1/scores?select=id,pseudo,vague,temps,kills,cree_le" +
             "&valide=eq.true&order=vague.desc,temps.desc&limit=20";
           const r = await fetch(url, { headers: supabaseHeaders() });
           if (!r.ok) throw new Error("HTTP " + r.status);
@@ -8549,7 +8563,7 @@
             "<table style='width:100%;border-collapse:collapse;font-size:14px'>" +
             "<tr style='color:#2ecc71;text-align:left'>" +
             "<th style='padding:8px'>#</th><th>Joueur</th>" +
-            "<th>Vague</th><th>Temps</th><th>Kills</th></tr>";
+            "<th>Vague</th><th>Temps</th><th>Kills</th><th></th></tr>";
 
           scores.forEach((sc, i) => {
             const rang = medailles[i] || i + 1;
@@ -8557,12 +8571,15 @@
             const moi =
               sc.pseudo === permanentData.pseudo ? "color:#f1c40f;font-weight:bold;" : "";
             html +=
-              "<tr style='border-top:1px solid #333;" + fond + moi + "'>" +
+              "<tr onclick='ouvrirReplay(" + sc.id + ")' " +
+              "title='Voir le détail de cette partie' " +
+              "style='border-top:1px solid #333;cursor:pointer;" + fond + moi + "'>" +
               "<td style='padding:8px'>" + rang + "</td>" +
               "<td>" + echapper(sc.pseudo) + "</td>" +
               "<td>" + sc.vague + "</td>" +
               "<td>" + sc.temps + "s</td>" +
-              "<td>" + sc.kills + "</td></tr>";
+              "<td>" + sc.kills + "</td>" +
+              "<td style='color:#666;font-size:12px'>détail \u203a</td></tr>";
           });
           zone.innerHTML = html + "</table>";
         } catch (e) {
@@ -8570,6 +8587,112 @@
             "<p style='color:#e74c3c'>Classement indisponible pour le moment.</p>";
           console.error("Classement :", e);
         }
+      }
+
+
+      // ====== REPLAY : detail d'une partie vague par vague ======
+      async function ouvrirReplay(idScore) {
+        const zone = document.getElementById("leaderboardList");
+        zone.innerHTML = "<p style='color:#888'>Chargement du détail…</p>";
+        try {
+          const r = await fetch(
+            SUPABASE_URL +
+              "/rest/v1/scores?select=pseudo,vague,temps,kills,argent_total," +
+              "zombies_apparus,journal,cree_le&id=eq." + idScore,
+            { headers: supabaseHeaders() }
+          );
+          const d = await r.json();
+          if (!d.length) throw new Error("introuvable");
+          afficherReplay(d[0]);
+        } catch (e) {
+          zone.innerHTML =
+            "<p style='color:#e74c3c'>Détail indisponible.</p>";
+          console.error("replay :", e);
+        }
+      }
+
+      function afficherReplay(sc) {
+        const zone = document.getElementById("leaderboardList");
+        const j = sc.journal || [];
+        const date = new Date(sc.cree_le).toLocaleString("fr-FR");
+
+        let html =
+          "<button onclick='chargerClassement()' style='background:none;" +
+          "border:1px solid #444;border-radius:7px;color:#999;padding:6px 12px;" +
+          "cursor:pointer;font-size:13px;margin-bottom:12px'>\u2190 Retour</button>" +
+          "<div style='background:rgba(46,204,113,.08);border-radius:10px;" +
+          "padding:13px;margin-bottom:14px'>" +
+          "<div style='font-size:17px;font-weight:bold;color:#2ecc71;margin-bottom:5px'>" +
+          echapper(sc.pseudo) + "</div>" +
+          "<div style='font-size:13px;color:#aaa;line-height:1.7'>" +
+          "Vague " + sc.vague + " \u00b7 " + sc.temps + "s de survie \u00b7 " +
+          sc.kills + " kills<br>" +
+          (sc.argent_total || 0).toLocaleString("fr-FR") + " $ gagnés \u00b7 " +
+          (sc.zombies_apparus || 0) + " zombies apparus<br>" +
+          "<span style='color:#666'>" + date + "</span></div></div>";
+
+        if (!j.length) {
+          html +=
+            "<p style='color:#888;font-size:13px'>Aucun détail enregistré " +
+            "pour cette partie (elle date d'avant le suivi par vague).</p>";
+          zone.innerHTML = html;
+          return;
+        }
+
+        html +=
+          "<div style='font-size:12px;color:#888;text-transform:uppercase;" +
+          "letter-spacing:1px;margin-bottom:9px'>Déroulé par vague</div>";
+
+        j.forEach((v, i) => {
+          const prec = i > 0 ? j[i - 1] : null;
+          const duree = prec ? v.t - prec.t : v.t;
+          const gagne = prec ? v.argentTotal - prec.argentTotal : v.argentTotal;
+          const tues = prec ? v.kills - prec.kills : v.kills;
+          const pvPerdus = prec ? Math.max(0, prec.pv - v.pv) : 0;
+          const pct = Math.round((v.pv / Math.max(1, v.pvMax)) * 100);
+          const couleurPv = pct > 60 ? "#2ecc71" : pct > 25 ? "#f1c40f" : "#e74c3c";
+
+          html +=
+            "<div style='background:rgba(30,30,60,.6);border-left:3px solid #3498db;" +
+            "border-radius:8px;padding:10px 12px;margin-bottom:8px'>" +
+            "<div style='display:flex;justify-content:space-between;" +
+            "align-items:center;margin-bottom:6px'>" +
+            "<span style='font-weight:bold;color:#fff;font-size:14px'>Vague " +
+            v.wave + "</span>" +
+            "<span style='font-size:12px;color:#777'>" + v.t + "s" +
+            (duree > 0 ? " (+" + duree + "s)" : "") + "</span></div>" +
+
+            "<div style='display:grid;grid-template-columns:repeat(auto-fit," +
+            "minmax(118px,1fr));gap:5px;font-size:12px;color:#bbb'>" +
+            "<span>\u2764\ufe0f <b style='color:" + couleurPv + "'>" + v.pv +
+            "/" + v.pvMax + "</b>" +
+            (pvPerdus > 0 ? " <span style='color:#e74c3c'>-" + pvPerdus + "</span>" : "") +
+            "</span>" +
+            "<span>\ud83d\udcb0 <b>" + (v.argent || 0).toLocaleString("fr-FR") + " $</b>" +
+            (gagne > 0 ? " <span style='color:#2ecc71'>+" + gagne + "</span>" : "") +
+            "</span>" +
+            "<span>\ud83d\udc80 <b>" + v.kills + "</b>" +
+            (tues > 0 ? " <span style='color:#2ecc71'>+" + tues + "</span>" : "") +
+            "</span>" +
+            "<span>\u2694\ufe0f <b>" + v.degats + "</b> dégâts</span>" +
+            "<span>\ud83c\udfaf <b>" + v.portee + "</b> portée</span>" +
+            "<span>\u2b50 Niveau <b>" + v.niveau + "</b></span>" +
+            (v.tourelles ? "<span>\ud83d\uddfc <b>" + v.tourelles + "</b> tourelles</span>" : "") +
+            (v.zombiesApparus ? "<span>\ud83e\udddf <b>" + v.zombiesApparus + "</b> apparus</span>" : "") +
+            "</div>";
+
+          if (v.achats && v.achats.length) {
+            html +=
+              "<div style='margin-top:7px;padding-top:6px;border-top:1px solid " +
+              "rgba(255,255,255,.07);font-size:12px;color:#f1c40f'>" +
+              "\ud83d\uded2 " + v.achats.map((a) => echapper(a.nom)).join(", ") +
+              " <span style='color:#777'>(" + (v.depense || 0).toLocaleString("fr-FR") +
+              " $)</span></div>";
+          }
+          html += "</div>";
+        });
+
+        zone.innerHTML = html;
       }
 
       // Empeche l'injection de HTML via un pseudo
@@ -9859,6 +9982,7 @@
 
         if (playerMoney >= price && !isMaxed) {
           playerMoney -= price;
+          noterAchat(item.name || item.id, price);
           upgradeLevels[item.id]++;
           item.effect();
           updateStatsDisplay();
@@ -10234,6 +10358,7 @@
         clearTimeout(spawnTimerId);
         spawnTimerId = null;
         itemsCollectedThisRun = 0;
+        achatsVague = [];
         bossesKilledThisRun = 0;
         preparerDefisSemaine();
         runLog = [];
@@ -11453,10 +11578,17 @@
             break;
         }
 
-        // Stats du boss basées sur la vague
+        // Stats du boss : croissance exponentielle, sinon il devient
+        // ridicule face aux degats du joueur en fin de partie
         const bossLevel = Math.floor(currentWave / 10);
-        const bossHealth = 500 + bossLevel * 300;
-        const bossDamage = 30 + bossLevel * 10;
+        // On tient compte de la puissance reelle du joueur pour que
+        // le combat reste un vrai defi meme tres equipe
+        const puissanceJoueur = baseDamage * (1000 / Math.max(120, attackSpeed));
+        const socle = 800 * Math.pow(1.85, bossLevel);
+        const bossHealth = Math.round(
+          Math.max(socle, puissanceJoueur * (9 + bossLevel * 2.5))
+        );
+        const bossDamage = 30 + bossLevel * 15;
         const bossSpeed = 0.5 + bossLevel * 0.1; // Vitesse calibrée pour 60 FPS
         const bossMoney = 200 + bossLevel * 100;
 
