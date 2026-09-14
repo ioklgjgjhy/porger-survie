@@ -4140,7 +4140,7 @@
             position: absolute;
             top: 90px;
             right: 18px;
-            width: 210px;
+            width: 232px;
             background: rgba(20, 20, 45, 0.85);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 12px;
@@ -9176,14 +9176,28 @@
       }
 
       // ====== PODIUM DANS LE HUB ======
+      let podiumEtendu = false;
+
+      function basculerPodium() {
+        podiumEtendu = !podiumEtendu;
+        chargerPodium().catch(() => {});
+      }
+
+      // Raccourcit les pseudos trop longs pour la colonne
+      function pseudoCourt(nom, max) {
+        nom = nom || "?";
+        return nom.length > max ? nom.slice(0, max - 1) + "\u2026" : nom;
+      }
+
       async function chargerPodium() {
         const zone = document.getElementById("podiumHub");
         if (!zone) return;
+        const limite = podiumEtendu ? 10 : 3;
         try {
           const url =
             SUPABASE_URL +
             "/rest/v1/scores?select=pseudo,vague,temps&valide=eq.true" +
-            "&order=vague.desc,temps.desc&limit=3";
+            "&order=vague.desc,temps.desc&limit=" + limite;
           const r = await fetch(url, { headers: supabaseHeaders() });
           if (!r.ok) throw new Error("HTTP " + r.status);
           const top = await r.json();
@@ -9201,25 +9215,41 @@
           top.forEach((j, i) => {
             const moi = j.pseudo === permanentData.pseudo;
             const initiale = (j.pseudo || "?").charAt(0).toUpperCase();
+            const rang = i < 3 ? medailles[i] : i + 1 + ".";
+            const teinte = i < 3 ? couleurs[i] : "#5a5a7a";
             html +=
-              "<div style='display:flex;align-items:center;gap:8px;padding:6px 0;" +
+              "<div title='" + echapper(j.pseudo) + " — vague " + j.vague + "' " +
+              "style='display:flex;align-items:center;gap:7px;padding:5px 0;" +
               (moi ? "background:rgba(241,196,15,.08);border-radius:6px;" : "") +
               "'>" +
-              "<span style='font-size:16px'>" + medailles[i] + "</span>" +
-              "<span style='width:26px;height:26px;border-radius:50%;background:" +
-              couleurs[i] + ";color:#111;display:flex;align-items:center;" +
-              "justify-content:center;font-weight:bold;font-size:13px;flex-shrink:0'>" +
+              "<span style='font-size:14px;width:19px;text-align:center;flex-shrink:0'>" +
+              rang + "</span>" +
+              "<span style='width:24px;height:24px;border-radius:50%;background:" +
+              teinte + ";color:#111;display:flex;align-items:center;" +
+              "justify-content:center;font-weight:bold;font-size:12px;flex-shrink:0'>" +
               echapper(initiale) + "</span>" +
-              "<span style='flex:1;font-size:13px;color:" +
-              (moi ? "#f1c40f" : "#ddd") + ";overflow:hidden;text-overflow:ellipsis;" +
-              "white-space:nowrap'>" + echapper(j.pseudo) + "</span>" +
-              "<span style='font-size:12px;color:#2ecc71;font-weight:bold'>V" +
-              j.vague + "</span></div>";
+              "<span style='flex:1;font-size:13px;min-width:0;color:" +
+              (moi ? "#f1c40f" : "#ddd") + "'>" +
+              echapper(pseudoCourt(j.pseudo, 9)) + "</span>" +
+              "<span style='font-size:11px;color:#2ecc71;font-weight:bold;" +
+              "flex-shrink:0'>Vague " + j.vague + "</span></div>";
           });
+
+          // Bouton pour voir plus de joueurs, seulement s'il y en a
+          if (podiumEtendu || top.length >= 3) {
+            html +=
+              "<button onclick='basculerPodium()' style='width:100%;margin-top:8px;" +
+              "padding:5px;background:rgba(255,255,255,.05);border:1px solid " +
+              "rgba(255,255,255,.12);border-radius:6px;color:#999;font-size:11px;" +
+              "cursor:pointer'>" +
+              (podiumEtendu ? "Afficher moins" : "Afficher plus") + "</button>";
+          }
+
           html +=
-            "<div style='margin-top:9px;padding-top:7px;border-top:1px solid " +
+            "<div style='margin-top:8px;padding-top:7px;border-top:1px solid " +
             "rgba(255,255,255,.08);font-size:10px;color:#8e44ad;" +
             "letter-spacing:1px;text-align:center;font-weight:bold'>BÊTA</div>";
+
           zone.innerHTML = html;
           zone.style.display = "block";
         } catch (e) {
