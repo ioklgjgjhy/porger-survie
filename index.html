@@ -9091,23 +9091,33 @@
       }
 
       function initRaccourcisDev() {
-        document.addEventListener("keydown", (e) => {
-          if (e.key === "Escape") {
-            const f = document.getElementById("panneauDev");
-            if (f && f.style.display === "flex") {
-              e.preventDefault();
-              fermerPanneauDev();
-            }
-            return;
+        // Ecoute sur window en capture : plus fiable quand le focus
+        // est sur un element du jeu plutot que sur le document
+        window.addEventListener("keydown", gererToucheDev, true);
+        document.addEventListener("keydown", gererToucheDev, true);
+      }
+
+      let derniereTouche = 0;
+      function gererToucheDev(e) {
+        if (e.key === "Escape") {
+          const f = document.getElementById("panneauDev");
+          if (f && f.style.display === "flex") {
+            e.preventDefault();
+            fermerPanneauDev();
           }
-          if (e.key !== "i" && e.key !== "I") return;
-          // Ne pas declencher pendant la saisie d'un pseudo ou d'un code
-          const c = document.activeElement;
-          if (c && (c.tagName === "INPUT" || c.tagName === "TEXTAREA")) return;
-          if (!estDeveloppeur()) return;
-          e.preventDefault();
-          ouvrirPanneauDev();
-        });
+          return;
+        }
+        if (e.key !== "i" && e.key !== "I") return;
+        // Ne pas declencher pendant la saisie d'un pseudo ou d'un code
+        const c = document.activeElement;
+        if (c && (c.tagName === "INPUT" || c.tagName === "TEXTAREA")) return;
+        if (!estDeveloppeur()) return;
+        // Les deux ecouteurs peuvent recevoir le meme appui : on filtre
+        const t = Date.now();
+        if (t - derniereTouche < 250) return;
+        derniereTouche = t;
+        e.preventDefault();
+        ouvrirPanneauDev();
       }
 
       function messageDev(texte) {
@@ -9127,14 +9137,42 @@
         b.timer = setTimeout(() => (b.style.display = "none"), 2200);
       }
 
-      // Plus d'encart permanent : simple rappel une fois par session
+      // Bouton discret pour ouvrir le panneau sans dependre du clavier
       let rappelDevFait = false;
       function afficherBadgeDev() {
         const ancien = document.getElementById("badgeDev");
         if (ancien) ancien.remove();
-        if (!estDeveloppeur() || rappelDevFait) return;
-        rappelDevFait = true;
-        setTimeout(() => messageDev("Mode développeur — touche I"), 900);
+
+        let b = document.getElementById("boutonDev");
+        if (!estDeveloppeur()) {
+          if (b) b.remove();
+          return;
+        }
+        if (!b) {
+          b = document.createElement("button");
+          b.id = "boutonDev";
+          b.type = "button";
+          b.title = "Panneau développeur (touche I)";
+          b.textContent = "\u2699\ufe0f";
+          b.style.cssText =
+            "position:fixed;bottom:38px;right:12px;width:38px;height:38px;" +
+            "border-radius:50%;border:2px solid #8e44ad;background:rgba(20,20,45,.9);" +
+            "color:#fff;font-size:17px;cursor:pointer;z-index:9997;padding:0;" +
+            "display:flex;align-items:center;justify-content:center;opacity:.55;" +
+            "transition:opacity .2s";
+          b.onmouseover = () => (b.style.opacity = "1");
+          b.onmouseout = () => (b.style.opacity = ".55");
+          b.onclick = (e) => {
+            e.preventDefault();
+            ouvrirPanneauDev();
+          };
+          document.body.appendChild(b);
+        }
+
+        if (!rappelDevFait) {
+          rappelDevFait = true;
+          setTimeout(() => messageDev("Mode développeur — touche I ou ⚙️"), 900);
+        }
       }
 
       // ====== PODIUM DANS LE HUB ======
