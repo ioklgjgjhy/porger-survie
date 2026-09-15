@@ -7435,6 +7435,7 @@
         initHubBackground();
         const etiq = document.getElementById("etiquetteVersion");
         if (etiq) etiq.textContent = "v" + VERSION_JEU;
+        verifierMiseAJour();
         chargerPodium().catch(() => {});
         afficherBadgeDev();
       }
@@ -9224,7 +9225,7 @@
       // ====== RAFRAICHISSEMENT AUTOMATIQUE ======
       // Tant que le classement est ouvert, on le recharge regulierement
       // pour voir arriver les scores des autres sans recharger la page.
-      const VERSION_JEU = "0.90";
+      const VERSION_JEU = "0.91";
       let minuteurClassement = null;
       let replayOuvert = false;
       const DELAI_RAFRAICHISSEMENT = 15000;
@@ -9251,6 +9252,71 @@
       function arreterRafraichissement() {
         clearInterval(minuteurClassement);
         minuteurClassement = null;
+      }
+
+      // ====== VERIFICATION DE MISE A JOUR ======
+      // Le jeu interroge un petit fichier du depot pour savoir si une
+      // version plus recente est publiee. Si le navigateur sert une
+      // version perimee depuis son cache, le joueur est prevenu.
+      let verificationFaite = false;
+
+      function versionPlusRecente(distante, locale) {
+        const a = String(distante).split(".").map(Number);
+        const b = String(locale).split(".").map(Number);
+        for (let i = 0; i < Math.max(a.length, b.length); i++) {
+          const x = a[i] || 0;
+          const y = b[i] || 0;
+          if (x > y) return true;
+          if (x < y) return false;
+        }
+        return false;
+      }
+
+      async function verifierMiseAJour() {
+        if (verificationFaite) return;
+        verificationFaite = true;
+        try {
+          // Le parametre force le navigateur a ignorer son cache
+          const r = await fetch("version.json?t=" + Date.now(), {
+            cache: "no-store",
+          });
+          if (!r.ok) return;
+          const info = await r.json();
+          if (versionPlusRecente(info.version, VERSION_JEU)) {
+            afficherBandeauMiseAJour(info);
+          }
+        } catch (e) {
+          // Hors ligne ou fichier absent : on ne derange pas le joueur
+          console.warn("verification de version :", e);
+        }
+      }
+
+      function afficherBandeauMiseAJour(info) {
+        if (document.getElementById("bandeauMaj")) return;
+        const b = document.createElement("div");
+        b.id = "bandeauMaj";
+        b.style.cssText =
+          "position:fixed;top:0;left:0;right:0;z-index:99999;" +
+          "background:linear-gradient(90deg,#e67e22,#d35400);color:#fff;" +
+          "padding:12px 16px;display:flex;align-items:center;gap:12px;" +
+          "flex-wrap:wrap;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,.5);" +
+          "font-size:14px";
+        b.innerHTML =
+          "<span>🔄 <b>Une nouvelle version du jeu est disponible</b>" +
+          (info.note ? " — " + echapper(info.note) : "") +
+          "</span>" +
+          "<button onclick='rechargerJeu()' style='padding:8px 18px;" +
+          "background:#fff;color:#d35400;border:none;border-radius:8px;" +
+          "font-weight:bold;cursor:pointer;font-size:13px'>Mettre à jour</button>" +
+          "<button onclick='this.parentElement.remove()' style='padding:8px 12px;" +
+          "background:rgba(255,255,255,.2);color:#fff;border:none;" +
+          "border-radius:8px;cursor:pointer;font-size:13px'>Plus tard</button>";
+        document.body.appendChild(b);
+      }
+
+      // Recharge en contournant le cache du navigateur
+      function rechargerJeu() {
+        location.replace(location.pathname + "?maj=" + Date.now());
       }
 
       function openHubLeaderboard() {
@@ -11941,6 +12007,7 @@
         initHubBackground();
         const etiq = document.getElementById("etiquetteVersion");
         if (etiq) etiq.textContent = "v" + VERSION_JEU;
+        verifierMiseAJour();
         chargerPodium().catch(() => {});
         afficherBadgeDev();
         updateHubDisplay();
@@ -12811,6 +12878,7 @@
         initHubBackground();
         const etiq = document.getElementById("etiquetteVersion");
         if (etiq) etiq.textContent = "v" + VERSION_JEU;
+        verifierMiseAJour();
         chargerPodium().catch(() => {});
         afficherBadgeDev();
       }
