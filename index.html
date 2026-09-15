@@ -4452,6 +4452,127 @@
         </div>
 
         <!-- ========== ÉCRAN D'ÉQUIPEMENT STYLE ARCHERO ========== -->
+        <!-- Formulaire de support -->
+        <div
+          id="ecranSupport"
+          style="
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 99000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 18px;
+          "
+          onclick="if(event.target===this) fermerFormulaireSupport()"
+        >
+          <div
+            style="
+              background: #12122a;
+              border: 2px solid #3498db;
+              border-radius: 16px;
+              padding: 20px;
+              max-width: 500px;
+              width: 100%;
+            "
+          >
+            <div style="display: flex; align-items: center; gap: 10px">
+              <span style="font-size: 21px">✉️</span>
+              <h2 style="color: #3498db; font-size: 18px; margin: 0; flex: 1">
+                Signaler un problème
+              </h2>
+              <button
+                onclick="fermerFormulaireSupport()"
+                style="
+                  background: none;
+                  border: none;
+                  color: #888;
+                  font-size: 24px;
+                  cursor: pointer;
+                  line-height: 1;
+                "
+              >
+                &times;
+              </button>
+            </div>
+            <p style="color: #999; font-size: 13px; margin: 6px 0 14px">
+              Décris ce qui ne va pas. Une capture d'écran aide beaucoup à
+              comprendre le problème.
+            </p>
+            <textarea
+              id="supportTexte"
+              maxlength="2000"
+              placeholder="Exemple : quand j'arrive vague 12, les zombies traversent les tourelles…"
+              style="
+                width: 100%;
+                min-height: 120px;
+                padding: 11px;
+                border-radius: 9px;
+                border: 1px solid #3498db;
+                background: #0d0d22;
+                color: #fff;
+                font-size: 14px;
+                font-family: inherit;
+                resize: vertical;
+                box-sizing: border-box;
+              "
+            ></textarea>
+
+            <label
+              style="
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                margin-top: 10px;
+                padding: 8px 14px;
+                background: rgba(255, 255, 255, 0.06);
+                border: 1px solid #555;
+                border-radius: 8px;
+                color: #ccc;
+                font-size: 13px;
+                cursor: pointer;
+              "
+            >
+              📎 Joindre une capture
+              <input
+                type="file"
+                id="supportFichier"
+                accept="image/*"
+                onchange="chargerCapture(this)"
+                style="display: none"
+              />
+            </label>
+            <div id="supportApercu"></div>
+
+            <p
+              id="supportMessage"
+              style="font-size: 13px; margin: 12px 0 0; min-height: 18px"
+            ></p>
+
+            <button
+              onclick="envoyerSupport()"
+              style="
+                width: 100%;
+                margin-top: 10px;
+                padding: 12px;
+                background: #3498db;
+                border: none;
+                border-radius: 9px;
+                color: #fff;
+                font-weight: bold;
+                font-size: 15px;
+                cursor: pointer;
+              "
+            >
+              Envoyer
+            </button>
+            <p style="color: #666; font-size: 11px; margin: 9px 0 0">
+              Ton pseudo et la version du jeu sont joints automatiquement.
+            </p>
+          </div>
+        </div>
+
         <!-- Filtre de butin -->
         <div
           id="filtreLootEcran"
@@ -9225,7 +9346,7 @@
       // ====== RAFRAICHISSEMENT AUTOMATIQUE ======
       // Tant que le classement est ouvert, on le recharge regulierement
       // pour voir arriver les scores des autres sans recharger la page.
-      const VERSION_JEU = "0.92";
+      const VERSION_JEU = "0.93";
       let minuteurClassement = null;
       let replayOuvert = false;
       const DELAI_RAFRAICHISSEMENT = 15000;
@@ -9421,6 +9542,131 @@
       }
 
 
+
+
+      // ====== BOITE DE RECEPTION (developpeur) ======
+      async function ouvrirMessages() {
+        if (!estFondateur()) return messageDev("Réservé au fondateur");
+        fermerPanneauDev();
+        closeHubSubmenu();
+        document.getElementById("hubLeaderboardMenu").style.display = "flex";
+        const zone = document.getElementById("leaderboardList");
+        zone.innerHTML = "<p style='color:#888'>Chargement…</p>";
+
+        try {
+          const r = await fetch(SUPABASE_URL + "/rest/v1/rpc/lire_messages", {
+            method: "POST",
+            headers: headersAuth(),
+            body: "{}",
+          });
+          if (!r.ok) throw new Error(await r.text());
+          const messages = await r.json();
+          afficherMessages(messages);
+        } catch (e) {
+          zone.innerHTML =
+            "<p style='color:#e74c3c'>Lecture impossible. Le SQL des " +
+            "messages est-il installé ?</p>";
+          console.error("messages :", e);
+        }
+      }
+
+      function afficherMessages(messages) {
+        const zone = document.getElementById("leaderboardList");
+        const nonLus = messages.filter((m) => !m.traite).length;
+
+        let html =
+          "<button onclick='chargerClassement()' style='background:none;" +
+          "border:1px solid #444;border-radius:7px;color:#999;padding:6px 12px;" +
+          "cursor:pointer;font-size:13px;margin-bottom:12px'>\u2190 Retour</button>" +
+          "<div style='color:#3498db;font-weight:bold;margin-bottom:12px'>" +
+          "\u2709\ufe0f Messages \u00b7 " + messages.length + " reçu(s)" +
+          (nonLus ? " \u00b7 <span style='color:#e67e22'>" + nonLus +
+            " non traité(s)</span>" : "") + "</div>";
+
+        if (!messages.length) {
+          zone.innerHTML = html + "<p style='color:#888'>Aucun message.</p>";
+          return;
+        }
+
+        messages.forEach((m) => {
+          const date = new Date(m.cree_le).toLocaleString("fr-FR");
+          html +=
+            "<div style='background:rgba(30,30,60,.6);border-left:3px solid " +
+            (m.traite ? "#555" : "#3498db") + ";border-radius:9px;" +
+            "padding:12px;margin-bottom:10px;opacity:" +
+            (m.traite ? ".55" : "1") + "'>" +
+            "<div style='display:flex;justify-content:space-between;gap:8px;" +
+            "flex-wrap:wrap;margin-bottom:7px;font-size:12px'>" +
+            "<span style='color:#2ecc71;font-weight:bold'>" +
+            echapper(m.pseudo || "Anonyme") + "</span>" +
+            "<span style='color:#777'>v" + echapper(m.version || "?") +
+            " \u00b7 " + date + "</span></div>" +
+            "<div style='color:#ddd;font-size:13px;line-height:1.5;" +
+            "white-space:pre-wrap;word-break:break-word'>" +
+            echapper(m.texte) + "</div>";
+
+          if (m.capture) {
+            html +=
+              "<img src='" + m.capture + "' onclick='agrandirCapture(this.src)' " +
+              "style='max-width:100%;margin-top:9px;border-radius:7px;" +
+              "border:1px solid #444;cursor:zoom-in'>";
+          }
+
+          html +=
+            "<div style='display:flex;gap:7px;margin-top:9px;flex-wrap:wrap'>" +
+            "<button onclick='marquerMessage(" + m.id + "," + (!m.traite) + ")' " +
+            "style='padding:5px 12px;background:none;border:1px solid " +
+            (m.traite ? "#777" : "#2ecc71") + ";border-radius:6px;color:" +
+            (m.traite ? "#777" : "#2ecc71") + ";font-size:12px;cursor:pointer'>" +
+            (m.traite ? "Remettre à traiter" : "Marquer traité") + "</button>" +
+            "<button onclick='supprimerMessage(" + m.id + ")' " +
+            "style='padding:5px 12px;background:none;border:1px solid #c0392b;" +
+            "border-radius:6px;color:#c0392b;font-size:12px;cursor:pointer'>" +
+            "Supprimer</button></div></div>";
+        });
+
+        zone.innerHTML = html;
+      }
+
+      function agrandirCapture(src) {
+        const v = document.createElement("div");
+        v.style.cssText =
+          "position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:99999;" +
+          "display:flex;align-items:center;justify-content:center;padding:20px;" +
+          "cursor:zoom-out";
+        v.onclick = () => v.remove();
+        v.innerHTML =
+          "<img src='" + src + "' style='max-width:100%;max-height:100%;" +
+          "border-radius:9px'>";
+        document.body.appendChild(v);
+      }
+
+      async function marquerMessage(id, traite) {
+        try {
+          await fetch(SUPABASE_URL + "/rest/v1/rpc/marquer_message", {
+            method: "POST",
+            headers: headersAuth(),
+            body: JSON.stringify({ p_id: id, p_traite: traite }),
+          });
+          ouvrirMessages();
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      async function supprimerMessage(id) {
+        if (!confirm("Supprimer définitivement ce message ?")) return;
+        try {
+          await fetch(SUPABASE_URL + "/rest/v1/rpc/supprimer_message", {
+            method: "POST",
+            headers: headersAuth(),
+            body: JSON.stringify({ p_id: id }),
+          });
+          ouvrirMessages();
+        } catch (e) {
+          console.error(e);
+        }
+      }
 
       // ====== MODERATION (compte developpeur uniquement) ======
       async function ouvrirModeration() {
@@ -10494,6 +10740,10 @@
           ligne("\ud83d\udc41\ufe0f", "Voir les parties", "Liste groupée par joueur",
             "#8e44ad", null, "ouvrirModeration()", null) +
 
+          ligne("\u2709\ufe0f", "Messages reçus",
+            "Signalements envoyés par les joueurs",
+            "#3498db", null, "ouvrirMessages()", null) +
+
           ligne("\ud83c\udf81", "Tous les items",
             "Un exemplaire de chaque équipement du jeu",
             "#16a085", null, "devTousLesItems()", null) +
@@ -11058,9 +11308,122 @@
       const CONTACT_EMAIL = "";
 
       function openContact() {
-        if (!CONTACT_EMAIL) return; // support pas encore disponible
-        const sujet = encodeURIComponent("Porger - Retour joueur");
-        window.location.href = "mailto:" + CONTACT_EMAIL + "?subject=" + sujet;
+        ouvrirFormulaireSupport();
+      }
+
+      // ====== FORMULAIRE DE SUPPORT ======
+      let captureJointe = null;
+
+      function ouvrirFormulaireSupport() {
+        captureJointe = null;
+        const f = document.getElementById("ecranSupport");
+        document.getElementById("supportTexte").value = "";
+        document.getElementById("supportMessage").textContent = "";
+        document.getElementById("supportApercu").innerHTML = "";
+        f.style.display = "flex";
+        document.getElementById("supportTexte").focus();
+      }
+
+      function fermerFormulaireSupport() {
+        document.getElementById("ecranSupport").style.display = "none";
+        captureJointe = null;
+      }
+
+      // Lecture d'une capture d'ecran choisie par le joueur
+      function chargerCapture(input) {
+        const fichier = input.files && input.files[0];
+        const apercu = document.getElementById("supportApercu");
+        const msg = document.getElementById("supportMessage");
+        if (!fichier) return;
+
+        if (!fichier.type.startsWith("image/")) {
+          msg.style.color = "#e74c3c";
+          msg.textContent = "Ce fichier n'est pas une image.";
+          input.value = "";
+          return;
+        }
+
+        const lecteur = new FileReader();
+        lecteur.onload = () => {
+          // On redimensionne pour ne pas saturer la base
+          const img = new Image();
+          img.onload = () => {
+            const max = 900;
+            const ratio = Math.min(1, max / Math.max(img.width, img.height));
+            const c = document.createElement("canvas");
+            c.width = Math.round(img.width * ratio);
+            c.height = Math.round(img.height * ratio);
+            c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+            captureJointe = c.toDataURL("image/jpeg", 0.72);
+
+            const poids = Math.round((captureJointe.length * 0.75) / 1024);
+            apercu.innerHTML =
+              "<div style='display:flex;align-items:center;gap:10px;margin-top:8px'>" +
+              "<img src='" + captureJointe + "' style='width:70px;height:48px;" +
+              "object-fit:cover;border-radius:6px;border:1px solid #444'>" +
+              "<span style='font-size:12px;color:#888'>Capture jointe (" +
+              poids + " Ko)</span>" +
+              "<button onclick='retirerCapture()' style='margin-left:auto;" +
+              "padding:4px 10px;background:none;border:1px solid #c0392b;" +
+              "border-radius:6px;color:#c0392b;font-size:11px;cursor:pointer'>" +
+              "Retirer</button></div>";
+          };
+          img.src = lecteur.result;
+        };
+        lecteur.readAsDataURL(fichier);
+      }
+
+      function retirerCapture() {
+        captureJointe = null;
+        document.getElementById("supportApercu").innerHTML = "";
+        const input = document.getElementById("supportFichier");
+        if (input) input.value = "";
+      }
+
+      async function envoyerSupport() {
+        const zone = document.getElementById("supportTexte");
+        const msg = document.getElementById("supportMessage");
+        const texte = zone.value.trim();
+
+        if (texte.length < 5) {
+          msg.style.color = "#e74c3c";
+          msg.textContent = "Décris un peu plus le problème (5 caractères minimum).";
+          return;
+        }
+        if (texte.length > 2000) {
+          msg.style.color = "#e74c3c";
+          msg.textContent = "Message trop long (2000 caractères maximum).";
+          return;
+        }
+
+        msg.style.color = "#888";
+        msg.textContent = "Envoi…";
+
+        try {
+          const r = await fetch(SUPABASE_URL + "/rest/v1/messages", {
+            method: "POST",
+            headers: headersAuth(),
+            body: JSON.stringify({
+              texte: texte,
+              pseudo: permanentData.pseudo || null,
+              joueur_id: sessionUtilisateur ? sessionUtilisateur.id : null,
+              version: VERSION_JEU,
+              navigateur: navigator.userAgent.slice(0, 200),
+              capture: captureJointe,
+            }),
+          });
+          if (!r.ok) throw new Error(await r.text());
+
+          msg.style.color = "#2ecc71";
+          msg.textContent = "✅ Message envoyé, merci !";
+          zone.value = "";
+          retirerCapture();
+          setTimeout(fermerFormulaireSupport, 1800);
+        } catch (e) {
+          msg.style.color = "#e74c3c";
+          msg.textContent = "Envoi impossible. Réessaie dans un instant.";
+          console.error("support :", e);
+        }
       }
 
       // Adapte l'apparence du bouton selon qu'une adresse existe ou non
@@ -11077,15 +11440,9 @@
         const lien = document.getElementById("contactLink");
         if (!lien) return;
         setInterval(majVisibiliteContact, 500);
-        if (CONTACT_EMAIL) {
-          lien.title = "Contacter le support";
-          lien.style.cursor = "pointer";
-          lien.style.color = "rgba(255, 255, 255, 0.5)";
-        } else {
-          lien.title = "Support indisponible pour le moment";
-          lien.style.cursor = "not-allowed";
-          lien.style.color = "rgba(150, 150, 150, 0.35)";
-        }
+        lien.title = "Signaler un problème";
+        lien.style.cursor = "pointer";
+        lien.style.color = "rgba(255, 255, 255, 0.5)";
       }
       window.addEventListener("DOMContentLoaded", initContactButton);
       window.addEventListener("DOMContentLoaded", initRaccourcisDev);
