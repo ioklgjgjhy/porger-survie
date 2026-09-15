@@ -1613,6 +1613,82 @@
         transform: perspective(80px) rotateX(10deg);
       }
 
+      /* L'apparence evolue avec les ameliorations : une tourelle
+         tres amelioree doit se voir au premier coup d'oeil */
+      .turret.palier-1 {
+        width: 36px;
+        height: 36px;
+        background: linear-gradient(145deg, #58d68d, #229954);
+        border-color: #82e0aa;
+        box-shadow: 0 6px 0 #145a32, 0 8px 15px rgba(0, 0, 0, 0.45),
+          0 0 14px rgba(46, 204, 113, 0.55), inset 0 -3px 8px rgba(0, 0, 0, 0.3),
+          inset 0 3px 6px rgba(255, 255, 255, 0.3);
+      }
+
+      .turret.palier-2 {
+        width: 40px;
+        height: 40px;
+        background: linear-gradient(145deg, #bb8fce, #7d3c98);
+        border-color: #d2b4de;
+        box-shadow: 0 7px 0 #4a235a, 0 9px 18px rgba(0, 0, 0, 0.5),
+          0 0 18px rgba(155, 89, 182, 0.6), inset 0 -3px 8px rgba(0, 0, 0, 0.3),
+          inset 0 3px 6px rgba(255, 255, 255, 0.35);
+      }
+
+      .turret.palier-3 {
+        width: 44px;
+        height: 44px;
+        background: linear-gradient(145deg, #f5b041, #ca6f1e);
+        border-color: #f8c471;
+        box-shadow: 0 8px 0 #7e5109, 0 10px 20px rgba(0, 0, 0, 0.55),
+          0 0 22px rgba(243, 156, 18, 0.7), inset 0 -3px 8px rgba(0, 0, 0, 0.3),
+          inset 0 3px 6px rgba(255, 255, 255, 0.4);
+      }
+
+      .turret.palier-4 {
+        width: 48px;
+        height: 48px;
+        background: linear-gradient(145deg, #ec7063, #922b21);
+        border-color: #f1948a;
+        box-shadow: 0 9px 0 #641e16, 0 11px 24px rgba(0, 0, 0, 0.6),
+          0 0 28px rgba(231, 76, 60, 0.8), inset 0 -3px 8px rgba(0, 0, 0, 0.3),
+          inset 0 3px 6px rgba(255, 255, 255, 0.45);
+        animation: tourellePulse 2.2s ease-in-out infinite;
+      }
+
+      @keyframes tourellePulse {
+        0%, 100% { filter: brightness(1); }
+        50% { filter: brightness(1.28); }
+      }
+
+      /* Le canon s'allonge avec les paliers */
+      .turret.palier-1::before { width: 21px; }
+      .turret.palier-2::before { width: 24px; height: 7px; }
+      .turret.palier-3::before { width: 27px; height: 8px; }
+      .turret.palier-4::before {
+        width: 30px;
+        height: 9px;
+        background: linear-gradient(90deg, #444, #888, #444);
+      }
+
+      /* Petites decorations qui marquent le niveau */
+      .turret.palier-2::after,
+      .turret.palier-3::after,
+      .turret.palier-4::after {
+        content: "";
+        position: absolute;
+        top: -5px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      .turret.palier-2::after { background: #d2b4de; }
+      .turret.palier-3::after { background: #f8c471; box-shadow: 0 0 8px #f39c12; }
+      .turret.palier-4::after { background: #f1948a; box-shadow: 0 0 12px #e74c3c; }
+
       .turret::before {
         content: "";
         width: 18px;
@@ -6183,6 +6259,17 @@
         selectedTurretForUpgrade = null;
       }
 
+      // Met l'apparence de la tourelle en accord avec son niveau
+      function majApparenceTourelle(t) {
+        if (!t || !t.element) return;
+        const total = (t.rangeLevel || 0) + (t.damageLevel || 0);
+        const palier = total >= 10 ? 4 : total >= 6 ? 3 : total >= 3 ? 2 : total >= 1 ? 1 : 0;
+        t.element.classList.remove(
+          "palier-1", "palier-2", "palier-3", "palier-4"
+        );
+        if (palier > 0) t.element.classList.add("palier-" + palier);
+      }
+
       // Améliorer la portée de la tourelle
       function upgradeTurretRange() {
         if (!selectedTurretForUpgrade) return;
@@ -6192,6 +6279,7 @@
           playerMoney -= price;
           selectedTurretForUpgrade.range += 50;
           selectedTurretForUpgrade.rangeLevel++;
+          majApparenceTourelle(selectedTurretForUpgrade);
 
           // Mettre à jour le cercle de portée visuel
           const rangeEl = selectedTurretForUpgrade.rangeElement;
@@ -6218,6 +6306,7 @@
           playerMoney -= price;
           selectedTurretForUpgrade.damage += 10;
           selectedTurretForUpgrade.damageLevel++;
+          majApparenceTourelle(selectedTurretForUpgrade);
 
           updateMoneyDisplay();
           updateTurretUpgradeMenu();
