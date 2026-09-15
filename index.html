@@ -4959,7 +4959,7 @@
         </p>
         <p style="font-size: 20px">🌊 Vague: <span id="finalWave">1</span></p>
         <p style="font-size: 18px">
-          💰 Argent: <span id="finalMoney">0</span> $
+          💰 Argent max: <span id="finalMoney">0</span> $
         </p>
         <p style="font-size: 16px">💀 Kills: <span id="finalKills">0</span></p>
         <p style="font-size: 14px">⏱️ Temps: <span id="finalTime">0</span>s</p>
@@ -5055,6 +5055,7 @@
       let maxHealth = 100;
       let playerMoney = 0;
       let totalMoneyEarned = 0;
+      let picArgent = 0; // plus grosse somme detenue pendant la partie
       let kills = 0;
       let gameTime = 0;
       let currentGemsAccumulated = 0; // Gemmes accumulées pendant la partie
@@ -11151,6 +11152,7 @@
         shopOpen = false;
         gameStartTime = Date.now(); // Enregistrer l'heure de début pour la période de grâce
         enemiesSpawnedTotal = 0;
+        picArgent = 0;
         clearTimeout(waveNextTimerId);
         waveNextTimerId = null;
         clearTimeout(spawnTimerId);
@@ -11333,6 +11335,8 @@
       }
 
       function updateMoneyDisplay() {
+        // Le pic sert de score de richesse en fin de partie
+        if (playerMoney > picArgent) picArgent = playerMoney;
         moneySpan.textContent = playerMoney;
         if (shopOpen) {
           shopMoneySpan.textContent = playerMoney;
@@ -12036,7 +12040,7 @@
           niveau: playerLevel,
           kills: kills,
           temps: gameTime,
-          argentTotal: totalMoneyEarned,
+          argentTotal: Math.round(Math.max(picArgent, totalMoneyEarned)),
           zombiesApparus: enemiesSpawnedTotal,
           valide: runValid,
           anomalies: runFlags,
@@ -12077,7 +12081,9 @@
 
         document.getElementById("finalLevel").textContent = playerLevel;
         document.getElementById("finalWave").textContent = currentWave;
-        document.getElementById("finalMoney").textContent = Math.round(playerMoney);
+        document.getElementById("finalMoney").textContent = Math.round(
+          Math.max(picArgent, playerMoney)
+        );
         document.getElementById("finalKills").textContent = kills;
         document.getElementById("finalTime").textContent = gameTime;
         gameOverDiv.style.display = "block";
