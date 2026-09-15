@@ -4959,7 +4959,7 @@
         </p>
         <p style="font-size: 20px">🌊 Vague: <span id="finalWave">1</span></p>
         <p style="font-size: 18px">
-          💰 Argent max: <span id="finalMoney">0</span> $
+          💰 Argent gagné: <span id="finalMoney">0</span> $
         </p>
         <p style="font-size: 16px">💀 Kills: <span id="finalKills">0</span></p>
         <p style="font-size: 14px">⏱️ Temps: <span id="finalTime">0</span>s</p>
@@ -8650,8 +8650,37 @@
       }
 
       // Envoie la progression dans le cloud (apres chaque partie)
+      // Genere un pseudo libre pour les joueurs connectes qui n'en
+      // ont pas choisi, sinon leur progression n'etait jamais sauvegardee
+      async function assurerPseudo() {
+        if (permanentData.pseudo) return true;
+        for (let essai = 0; essai < 6; essai++) {
+          const candidat = "Joueur" + Math.floor(1000 + Math.random() * 9000);
+          try {
+            const r = await fetch(SUPABASE_URL + "/rest/v1/rpc/renommer_joueur", {
+              method: "POST",
+              headers: headersAuth(),
+              body: JSON.stringify({ p_pseudo: candidat }),
+            });
+            if (r.ok) {
+              permanentData.pseudo = candidat;
+              savePermanentData();
+              return true;
+            }
+          } catch (e) {
+            return false;
+          }
+        }
+        return false;
+      }
+
       async function sauvegarderEnLigne() {
-        if (!sessionUtilisateur || !permanentData.pseudo) return;
+        if (!sessionUtilisateur) return;
+        // Un pseudo est necessaire cote base : on en attribue un au besoin
+        if (!permanentData.pseudo) {
+          const ok = await assurerPseudo();
+          if (!ok) return;
+        }
         try {
           await fetch(
             SUPABASE_URL + "/rest/v1/profils?id=eq." + sessionUtilisateur.id,
@@ -12083,9 +12112,10 @@
 
         document.getElementById("finalLevel").textContent = playerLevel;
         document.getElementById("finalWave").textContent = currentWave;
+        // Total cumule de tout ce qui a ete gagne pendant la partie
         document.getElementById("finalMoney").textContent = Math.round(
-          Math.max(picArgent, playerMoney)
-        );
+          Math.max(totalMoneyEarned, picArgent)
+        ).toLocaleString("fr-FR");
         document.getElementById("finalKills").textContent = kills;
         document.getElementById("finalTime").textContent = gameTime;
         gameOverDiv.style.display = "block";
