@@ -1689,6 +1689,11 @@
       .turret.palier-3::after { background: #f8c471; box-shadow: 0 0 8px #f39c12; }
       .turret.palier-4::after { background: #f1948a; box-shadow: 0 0 12px #e74c3c; }
 
+      @keyframes glisserDroite {
+        from { transform: translateX(110%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
+
       /* Canon secondaire monte au-dessus de la tourelle */
       .canon-secondaire {
         position: absolute;
@@ -4333,6 +4338,41 @@
           </div>
           <div class="submenu-content">
             <div id="rebirthContent"></div>
+          </div>
+        </div>
+
+        <!-- SUB-MENU: Messages (developpeur) -->
+        <div class="hub-submenu" id="hubMessagesMenu">
+          <div class="submenu-header">
+            <button class="submenu-back" onclick="closeHubSubmenu()">←</button>
+            <h2 class="submenu-title">✉️ Messages reçus</h2>
+            <span
+              id="compteurMessages"
+              style="
+                margin-left: auto;
+                background: #e67e22;
+                color: #fff;
+                font-size: 12px;
+                font-weight: bold;
+                padding: 4px 10px;
+                border-radius: 12px;
+                display: none;
+              "
+            ></span>
+          </div>
+          <div class="submenu-content">
+            <div id="listeMessages"></div>
+          </div>
+        </div>
+
+        <!-- SUB-MENU: Modération (developpeur) -->
+        <div class="hub-submenu" id="hubModerationMenu">
+          <div class="submenu-header">
+            <button class="submenu-back" onclick="closeHubSubmenu()">←</button>
+            <h2 class="submenu-title">🛠️ Modération</h2>
+          </div>
+          <div class="submenu-content">
+            <div id="listeModeration"></div>
           </div>
         </div>
 
@@ -7558,6 +7598,13 @@
         const etiq = document.getElementById("etiquetteVersion");
         if (etiq) etiq.textContent = "v" + VERSION_JEU;
         verifierMiseAJour();
+        if (typeof verifierMessages === "function") {
+          verifierMessages();
+          // Toutes les 2 minutes tant que le jeu est ouvert
+          if (!window.minuteurMessages) {
+            window.minuteurMessages = setInterval(verifierMessages, 120000);
+          }
+        }
         chargerPodium().catch(() => {});
         afficherBadgeDev();
       }
@@ -9347,7 +9394,7 @@
       // ====== RAFRAICHISSEMENT AUTOMATIQUE ======
       // Tant que le classement est ouvert, on le recharge regulierement
       // pour voir arriver les scores des autres sans recharger la page.
-      const VERSION_JEU = "0.94";
+      const VERSION_JEU = "0.95";
       let minuteurClassement = null;
       let replayOuvert = false;
       const DELAI_RAFRAICHISSEMENT = 15000;
@@ -9546,12 +9593,83 @@
 
 
       // ====== BOITE DE RECEPTION (developpeur) ======
+      let messagesNonLus = 0;
+
+      // Pastille rouge sur le bouton developpeur
+      function majPastilleMessages() {
+        const b = document.getElementById("boutonDev");
+        if (!b) return;
+        let p = document.getElementById("pastilleMessages");
+        if (messagesNonLus > 0) {
+          if (!p) {
+            p = document.createElement("span");
+            p.id = "pastilleMessages";
+            p.style.cssText =
+              "position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;" +
+              "background:#e74c3c;color:#fff;border-radius:9px;font-size:11px;" +
+              "font-weight:bold;display:flex;align-items:center;" +
+              "justify-content:center;padding:0 4px;box-shadow:0 2px 6px rgba(0,0,0,.5)";
+            b.style.position = "fixed";
+            b.appendChild(p);
+          }
+          p.textContent = messagesNonLus > 9 ? "9+" : messagesNonLus;
+        } else if (p) {
+          p.remove();
+        }
+      }
+
+      // Verifie discretement s'il y a de nouveaux messages
+      async function verifierMessages() {
+        if (!estFondateur()) return;
+        try {
+          const r = await fetch(SUPABASE_URL + "/rest/v1/rpc/lire_messages", {
+            method: "POST",
+            headers: headersAuth(),
+            body: "{}",
+          });
+          if (!r.ok) return;
+          const messages = await r.json();
+          const avant = messagesNonLus;
+          messagesNonLus = messages.filter((m) => !m.traite).length;
+          majPastilleMessages();
+          // Un nouveau message pendant la session : on le signale
+          if (messagesNonLus > avant && avant >= 0) {
+            notifierNouveauMessage(messagesNonLus - avant);
+          }
+        } catch (e) {
+          console.warn("verification messages :", e);
+        }
+      }
+
+      function notifierNouveauMessage(nombre) {
+        const n = document.createElement("div");
+        n.style.cssText =
+          "position:fixed;top:16px;right:16px;z-index:99999;background:#3498db;" +
+          "color:#fff;padding:12px 16px;border-radius:10px;font-size:13px;" +
+          "box-shadow:0 6px 20px rgba(0,0,0,.5);cursor:pointer;max-width:260px;" +
+          "animation:glisserDroite .3s ease-out";
+        n.innerHTML =
+          "\u2709\ufe0f <b>" + nombre + " nouveau" + (nombre > 1 ? "x" : "") +
+          " message" + (nombre > 1 ? "s" : "") + "</b><br>" +
+          "<span style='font-size:12px;opacity:.9'>Clique pour lire</span>";
+        n.onclick = () => {
+          n.remove();
+          ouvrirMessages();
+        };
+        document.body.appendChild(n);
+        setTimeout(() => {
+          n.style.transition = "opacity .4s";
+          n.style.opacity = "0";
+          setTimeout(() => n.remove(), 420);
+        }, 6000);
+      }
+
       async function ouvrirMessages() {
         if (!estFondateur()) return messageDev("Réservé au fondateur");
         fermerPanneauDev();
         closeHubSubmenu();
-        document.getElementById("hubLeaderboardMenu").style.display = "flex";
-        const zone = document.getElementById("leaderboardList");
+        document.getElementById("hubMessagesMenu").style.display = "flex";
+        const zone = document.getElementById("listeMessages");
         zone.innerHTML = "<p style='color:#888'>Chargement…</p>";
 
         try {
@@ -9572,17 +9690,22 @@
       }
 
       function afficherMessages(messages) {
-        const zone = document.getElementById("leaderboardList");
+        const zone = document.getElementById("listeMessages");
         const nonLus = messages.filter((m) => !m.traite).length;
+        messagesNonLus = nonLus;
+        majPastilleMessages();
+
+        const badge = document.getElementById("compteurMessages");
+        if (badge) {
+          badge.textContent = nonLus + " à traiter";
+          badge.style.display = nonLus ? "inline-block" : "none";
+        }
 
         let html =
-          "<button onclick='chargerClassement()' style='background:none;" +
-          "border:1px solid #444;border-radius:7px;color:#999;padding:6px 12px;" +
-          "cursor:pointer;font-size:13px;margin-bottom:12px'>\u2190 Retour</button>" +
-          "<div style='color:#3498db;font-weight:bold;margin-bottom:12px'>" +
-          "\u2709\ufe0f Messages \u00b7 " + messages.length + " reçu(s)" +
-          (nonLus ? " \u00b7 <span style='color:#e67e22'>" + nonLus +
-            " non traité(s)</span>" : "") + "</div>";
+          "<p style='color:#888;font-size:13px;margin-bottom:14px'>" +
+          messages.length + " message(s) reçu(s)" +
+          (nonLus ? " \u00b7 " + nonLus + " en attente" : " \u00b7 tout est traité") +
+          "</p>";
 
         if (!messages.length) {
           zone.innerHTML = html + "<p style='color:#888'>Aucun message.</p>";
@@ -9674,8 +9797,8 @@
         if (!estDeveloppeur()) return;
         fermerPanneauDev();
         closeHubSubmenu();
-        document.getElementById("hubLeaderboardMenu").style.display = "flex";
-        const zone = document.getElementById("leaderboardList");
+        document.getElementById("hubModerationMenu").style.display = "flex";
+        const zone = document.getElementById("listeModeration");
         zone.innerHTML = "<p style='color:#888'>Chargement…</p>";
 
         try {
@@ -9689,11 +9812,8 @@
           scoresModeration = scores;
 
           let html =
-            "<button onclick='chargerClassement()' style='background:none;" +
-            "border:1px solid #444;border-radius:7px;color:#999;padding:6px 12px;" +
-            "cursor:pointer;font-size:13px;margin-bottom:12px'>\u2190 Retour</button>" +
-            "<div style='color:#8e44ad;font-weight:bold;margin-bottom:10px'>" +
-            "\u2699\ufe0f Modération \u00b7 " + scores.length + " partie(s)</div>";
+            "<p style='color:#888;font-size:13px;margin-bottom:14px'>" +
+            scores.length + " partie(s) enregistrée(s)</p>";
 
           if (!scores.length) {
             zone.innerHTML = html + "<p style='color:#888'>Aucune partie.</p>";
@@ -12463,6 +12583,13 @@
         const etiq = document.getElementById("etiquetteVersion");
         if (etiq) etiq.textContent = "v" + VERSION_JEU;
         verifierMiseAJour();
+        if (typeof verifierMessages === "function") {
+          verifierMessages();
+          // Toutes les 2 minutes tant que le jeu est ouvert
+          if (!window.minuteurMessages) {
+            window.minuteurMessages = setInterval(verifierMessages, 120000);
+          }
+        }
         chargerPodium().catch(() => {});
         afficherBadgeDev();
         updateHubDisplay();
@@ -13334,6 +13461,13 @@
         const etiq = document.getElementById("etiquetteVersion");
         if (etiq) etiq.textContent = "v" + VERSION_JEU;
         verifierMiseAJour();
+        if (typeof verifierMessages === "function") {
+          verifierMessages();
+          // Toutes les 2 minutes tant que le jeu est ouvert
+          if (!window.minuteurMessages) {
+            window.minuteurMessages = setInterval(verifierMessages, 120000);
+          }
+        }
         chargerPodium().catch(() => {});
         afficherBadgeDev();
       }
