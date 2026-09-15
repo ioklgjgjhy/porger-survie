@@ -7179,8 +7179,30 @@
       }
 
       // Sauvegarder les données
+      // Sauvegarde locale immediate, et sauvegarde cloud differee.
+      // Sans cela, tout ce qui est fait dans le hub (achats, gemmes,
+      // ameliorations) etait ecrase au rechargement par la version
+      // du cloud, qui ne partait qu'en fin de partie.
+      let minuteurCloud = null;
       function savePermanentData() {
         localStorage.setItem("towerDefenseSave", JSON.stringify(permanentData));
+
+        // On regroupe les modifications rapprochees en un seul envoi
+        if (typeof sauvegarderEnLigne === "function") {
+          clearTimeout(minuteurCloud);
+          minuteurCloud = setTimeout(() => {
+            sauvegarderEnLigne().catch(() => {});
+          }, 2500);
+        }
+      }
+
+      // Envoi immediat, pour les moments ou l'on ne peut pas attendre
+      function sauvegarderMaintenant() {
+        clearTimeout(minuteurCloud);
+        if (typeof sauvegarderEnLigne === "function") {
+          return sauvegarderEnLigne().catch(() => {});
+        }
+        return Promise.resolve();
       }
 
       // Mettre à jour l'affichage du hub
@@ -8875,11 +8897,27 @@
         if (!lignes.length) return; // pas encore de pseudo choisi
 
         permanentData.pseudo = lignes[0].pseudo;
-        if (lignes[0].sauvegarde) {
-          // La sauvegarde du cloud remplace celle de l'appareil
-          Object.assign(permanentData, lignes[0].sauvegarde);
-          savePermanentData();
-          updateHubDisplay();
+        const distante = lignes[0].sauvegarde;
+        if (distante) {
+          // On ne remplace que si la sauvegarde distante est au moins
+          // aussi avancee, pour ne pas effacer une partie jouee hors ligne
+          const scoreLocal =
+            (permanentData.bestWave || 0) * 1000 +
+            (permanentData.totalKills || 0);
+          const scoreDistant =
+            (distante.bestWave || 0) * 1000 + (distante.totalKills || 0);
+
+          if (scoreDistant >= scoreLocal) {
+            Object.assign(permanentData, distante);
+            localStorage.setItem(
+              "towerDefenseSave",
+              JSON.stringify(permanentData)
+            );
+            updateHubDisplay();
+          } else {
+            // Le local est plus avance : on pousse vers le cloud
+            sauvegarderMaintenant();
+          }
         }
       }
 
@@ -10881,6 +10919,10 @@
       }
       window.addEventListener("DOMContentLoaded", initContactButton);
       window.addEventListener("DOMContentLoaded", initRaccourcisDev);
+      // Dernier filet : envoyer ce qui est en attente avant de fermer
+      window.addEventListener("beforeunload", () => {
+        if (minuteurCloud) sauvegarderMaintenant();
+      });
       window.addEventListener("DOMContentLoaded", () => {
         // Les preferences audio doivent s'appliquer des le lancement
         const r = permanentData.settings || {};
