@@ -1689,8 +1689,8 @@
       .turret.palier-3::after { background: #f8c471; box-shadow: 0 0 8px #f39c12; }
       .turret.palier-4::after { background: #f1948a; box-shadow: 0 0 12px #e74c3c; }
 
-      @keyframes glisserDroite {
-        from { transform: translateX(110%); opacity: 0; }
+      @keyframes glisserGauche {
+        from { transform: translateX(-110%); opacity: 0; }
         to { transform: translateX(0); opacity: 1; }
       }
 
@@ -4213,6 +4213,18 @@
       <!-- ========== HUB / LOBBY (Archero-like) ========== -->
       <div id="gameHub">
         <div id="hubBackground"></div>
+        <div
+          id="etiquetteVersion"
+          style="
+            position: absolute;
+            bottom: 10px;
+            left: 54px;
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.25);
+            z-index: 3;
+            pointer-events: none;
+          "
+        ></div>
         <div
           id="podiumHub"
           style="
@@ -9394,7 +9406,7 @@
       // ====== RAFRAICHISSEMENT AUTOMATIQUE ======
       // Tant que le classement est ouvert, on le recharge regulierement
       // pour voir arriver les scores des autres sans recharger la page.
-      const VERSION_JEU = "0.95";
+      const VERSION_JEU = "0.96";
       let minuteurClassement = null;
       let replayOuvert = false;
       const DELAI_RAFRAICHISSEMENT = 15000;
@@ -9595,26 +9607,57 @@
       // ====== BOITE DE RECEPTION (developpeur) ======
       let messagesNonLus = 0;
 
-      // Pastille rouge sur le bouton developpeur
+      // Petit bouton discret en bas a gauche, reserve au fondateur
       function majPastilleMessages() {
-        const b = document.getElementById("boutonDev");
-        if (!b) return;
+        let b = document.getElementById("boutonMessages");
+
+        if (!estFondateur()) {
+          if (b) b.remove();
+          return;
+        }
+
+        if (!b) {
+          b = document.createElement("button");
+          b.id = "boutonMessages";
+          b.type = "button";
+          b.title = "Messages reçus";
+          b.style.cssText =
+            "position:fixed;bottom:30px;left:12px;width:34px;height:34px;" +
+            "border-radius:9px;border:1px solid #3498db;" +
+            "background:rgba(20,20,45,.9);color:#fff;font-size:15px;" +
+            "cursor:pointer;z-index:9996;padding:0;display:flex;" +
+            "align-items:center;justify-content:center;opacity:.6;" +
+            "transition:opacity .2s";
+          b.textContent = "\u2709\ufe0f";
+          b.onmouseover = () => (b.style.opacity = "1");
+          b.onmouseout = () => (b.style.opacity = messagesNonLus ? "1" : ".6");
+          b.onclick = (e) => {
+            e.preventDefault();
+            ouvrirMessages();
+          };
+          document.body.appendChild(b);
+        }
+
         let p = document.getElementById("pastilleMessages");
         if (messagesNonLus > 0) {
+          b.style.opacity = "1";
+          b.style.borderColor = "#e74c3c";
           if (!p) {
             p = document.createElement("span");
             p.id = "pastilleMessages";
             p.style.cssText =
-              "position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;" +
+              "position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;" +
               "background:#e74c3c;color:#fff;border-radius:9px;font-size:11px;" +
               "font-weight:bold;display:flex;align-items:center;" +
-              "justify-content:center;padding:0 4px;box-shadow:0 2px 6px rgba(0,0,0,.5)";
-            b.style.position = "fixed";
+              "justify-content:center;padding:0 4px;" +
+              "box-shadow:0 2px 6px rgba(0,0,0,.5)";
             b.appendChild(p);
           }
           p.textContent = messagesNonLus > 9 ? "9+" : messagesNonLus;
-        } else if (p) {
-          p.remove();
+        } else {
+          b.style.opacity = ".6";
+          b.style.borderColor = "#3498db";
+          if (p) p.remove();
         }
       }
 
@@ -9643,11 +9686,13 @@
 
       function notifierNouveauMessage(nombre) {
         const n = document.createElement("div");
+        // En bas a gauche : le haut a droite est occupe par les stats
+        const dejaLa = document.querySelectorAll(".loot-drop-popup").length;
         n.style.cssText =
-          "position:fixed;top:16px;right:16px;z-index:99999;background:#3498db;" +
-          "color:#fff;padding:12px 16px;border-radius:10px;font-size:13px;" +
-          "box-shadow:0 6px 20px rgba(0,0,0,.5);cursor:pointer;max-width:260px;" +
-          "animation:glisserDroite .3s ease-out";
+          "position:fixed;bottom:" + (20 + dejaLa * 72 + 60) + "px;left:20px;" +
+          "z-index:99999;background:#3498db;color:#fff;padding:12px 16px;" +
+          "border-radius:10px;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,.5);" +
+          "cursor:pointer;max-width:260px;animation:glisserGauche .3s ease-out";
         n.innerHTML =
           "\u2709\ufe0f <b>" + nombre + " nouveau" + (nombre > 1 ? "x" : "") +
           " message" + (nombre > 1 ? "s" : "") + "</b><br>" +
