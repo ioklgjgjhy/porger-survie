@@ -7433,6 +7433,8 @@
         mainMenu.style.display = "none";
         gameHub.style.display = "flex";
         initHubBackground();
+        const etiq = document.getElementById("etiquetteVersion");
+        if (etiq) etiq.textContent = "v" + VERSION_JEU;
         chargerPodium().catch(() => {});
         afficherBadgeDev();
       }
@@ -9222,6 +9224,7 @@
       // ====== RAFRAICHISSEMENT AUTOMATIQUE ======
       // Tant que le classement est ouvert, on le recharge regulierement
       // pour voir arriver les scores des autres sans recharger la page.
+      const VERSION_JEU = "0.90";
       let minuteurClassement = null;
       let replayOuvert = false;
       const DELAI_RAFRAICHISSEMENT = 15000;
@@ -11936,6 +11939,8 @@
         // UI - Afficher le hub
         gameHub.style.display = "flex";
         initHubBackground();
+        const etiq = document.getElementById("etiquetteVersion");
+        if (etiq) etiq.textContent = "v" + VERSION_JEU;
         chargerPodium().catch(() => {});
         afficherBadgeDev();
         updateHubDisplay();
@@ -12804,6 +12809,8 @@
         updateHubDisplay();
         gameHub.style.display = "flex";
         initHubBackground();
+        const etiq = document.getElementById("etiquetteVersion");
+        if (etiq) etiq.textContent = "v" + VERSION_JEU;
         chargerPodium().catch(() => {});
         afficherBadgeDev();
       }
