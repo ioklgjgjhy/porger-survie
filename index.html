@@ -9225,7 +9225,7 @@
       // ====== RAFRAICHISSEMENT AUTOMATIQUE ======
       // Tant que le classement est ouvert, on le recharge regulierement
       // pour voir arriver les scores des autres sans recharger la page.
-      const VERSION_JEU = "0.91";
+      const VERSION_JEU = "0.92";
       let minuteurClassement = null;
       let replayOuvert = false;
       const DELAI_RAFRAICHISSEMENT = 15000;
@@ -10494,8 +10494,55 @@
           ligne("\ud83d\udc41\ufe0f", "Voir les parties", "Liste groupée par joueur",
             "#8e44ad", null, "ouvrirModeration()", null) +
 
+          ligne("\ud83c\udf81", "Tous les items",
+            "Un exemplaire de chaque équipement du jeu",
+            "#16a085", null, "devTousLesItems()", null) +
+
+          ligne("\ud83d\uddd1\ufe0f", "Vider l'inventaire",
+            "Supprime tout sauf l'équipement porté",
+            "#7f8c8d", null, "devViderInventaire()", null) +
+
           "<p style='color:#555;font-size:11px;text-align:center;margin:9px 0 0'>" +
           "Touche I ou \u2699\ufe0f pour ouvrir et fermer</p></div>";
+      }
+
+      // Donne un exemplaire de chaque item du jeu, pour pouvoir
+      // comparer les valeurs sans farmer pendant des heures
+      function devTousLesItems() {
+        initEquipmentData();
+        let ajoutes = 0;
+        Object.keys(EQUIPMENT_ITEMS).forEach((cat) => {
+          EQUIPMENT_ITEMS[cat].forEach((modele) => {
+            // On evite les doublons si le bouton est clique deux fois
+            const existe = permanentData.inventory.some(
+              (i) => i.id === modele.id && (i.level || 1) === 1
+            );
+            if (existe) return;
+            const item = JSON.parse(JSON.stringify(modele));
+            item.uid = generateUid();
+            item.level = 1;
+            permanentData.inventory.push(item);
+            ajoutes++;
+          });
+        });
+        savePermanentData();
+        if (typeof renderEquipmentInventory === "function") {
+          renderEquipmentInventory();
+        }
+        messageDev(ajoutes + " items ajoutés à l'inventaire");
+      }
+
+      // Vide l'inventaire pour repartir d'un etat propre
+      function devViderInventaire() {
+        const nb = (permanentData.inventory || []).length;
+        if (!confirm("Vider l'inventaire ? " + nb + " objet(s) seront supprimés.\n" +
+                     "Les objets équipés ne sont pas touchés.")) return;
+        permanentData.inventory = [];
+        savePermanentData();
+        if (typeof renderEquipmentInventory === "function") {
+          renderEquipmentInventory();
+        }
+        messageDev(nb + " objets supprimés");
       }
 
       // Pieces et gemmes reglables separement
