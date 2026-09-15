@@ -5385,6 +5385,10 @@
       let lastWaveStartTime = 0;
       let lastIntegrityCheck = 0;
 
+      function dKillsBruts(a, b) {
+        return (a.kills || 0) - (b.kills || 0);
+      }
+
       // Enregistre les stats au moment ou la vague demarre
       function logWaveSnapshot() {
         const now = Date.now();
@@ -5414,22 +5418,30 @@
           const dt = snapshot.t - precedent.t;
           const dWave = snapshot.wave - precedent.wave;
 
-          // Vague bouclee trop vite pour etre humainement possible
-          if (dt < 2 && dWave > 0) {
-            flagRun("vague " + snapshot.wave + " terminee en " + dt + "s");
+          // Les seuils suivent la progression : un joueur avance gagne
+          // beaucoup plus vite, ce n'est pas suspect en soi.
+          const vague = snapshot.wave;
+
+          // Une vague instantanee n'est possible qu'en sautant
+          if (dt < 1 && dWave > 0 && dKillsBruts(snapshot, precedent) === 0) {
+            flagRun("vague " + vague + " passée sans aucun kill en " + dt + "s");
           }
-          // Saut de plusieurs vagues d'un coup
+          // Saut de plusieurs vagues d'un coup : la seule vraie certitude
           if (dWave > 1) {
-            flagRun("saut de vague : " + precedent.wave + " -> " + snapshot.wave);
+            flagRun("saut de vague : " + precedent.wave + " -> " + vague);
           }
-          // Argent gagne sans rapport avec les zombies tues
+          // Argent : le plafond monte avec la vague et le nombre de kills
           const dArgent = snapshot.argentTotal - precedent.argentTotal;
           const dKills = snapshot.kills - precedent.kills;
-          if (dArgent > 500 + dKills * 200) {
-            flagRun("gain d'argent anormal : +" + dArgent + " pour " + dKills + " kills");
+          const plafondArgent = 5000 + vague * 2000 + dKills * 3000;
+          if (dArgent > plafondArgent) {
+            flagRun(
+              "gain d'argent anormal : +" + dArgent + " pour " + dKills +
+              " kills en vague " + vague
+            );
           }
-          // Degats de base multiplies d'un coup
-          if (snapshot.degats > precedent.degats * 5 && precedent.degats > 0) {
+          // Degats : on tolere un gros bond (achats groupes, Rage, boss)
+          if (snapshot.degats > precedent.degats * 12 + 200 && precedent.degats > 0) {
             flagRun("degats passes de " + precedent.degats + " a " + snapshot.degats);
           }
         }
@@ -9664,10 +9676,9 @@
       // Envoi du score en fin de partie
       async function envoyerScore(resultat) {
         if (!permanentData.pseudo) return; // pas de pseudo, pas d'envoi
-        if (!resultat.valide) {
-          console.warn("Score non envoyé : anomalies détectées");
-          return;
-        }
+        // On envoie aussi les parties suspectes : elles sont exclues du
+        // classement par le champ "valide", mais on garde le journal
+        // pour pouvoir verifier au lieu de perdre l'information.
         if (resultat.vague < 1) return;
 
         try {
