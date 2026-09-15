@@ -6480,12 +6480,14 @@
           cooldown: 30000, // 30 secondes
           defaultKey: "4",
           effect: () => {
-            const originalDamage = baseDamage;
-            baseDamage *= 2;
+            // On memorise le gain applique, pas la valeur totale :
+            // sinon un achat fait pendant la Rage serait annule a la fin
+            const gain = baseDamage;
+            baseDamage += gain;
             player.style.background =
               "radial-gradient(circle, #e74c3c, #c0392b)";
             setTimeout(() => {
-              baseDamage = originalDamage;
+              baseDamage = Math.max(1, baseDamage - gain);
               player.style.background =
                 "radial-gradient(circle, #00b894, #00a383)";
             }, 5000);
