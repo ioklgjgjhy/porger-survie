@@ -8908,23 +8908,65 @@
 
       // Attribue un pseudo a la premiere connexion :
       // d'abord le nom du compte Google, sinon Utilisateur1, 2, 3...
+      // Pseudo par defaut : Utilisateur1, puis 2, 3... jusqu'a un libre.
+      // Le joueur est invite a le personnaliser apres sa partie.
       async function assurerPseudo() {
         if (permanentData.pseudo) return true;
         if (!sessionUtilisateur) return false;
 
-        // 1. Le nom du compte Google
-        const nom = nettoyerPseudo(sessionUtilisateur.nomGoogle);
-        if (nom && (await tenterPseudo(nom))) return true;
-
-        // 2. Sinon on incremente jusqu'a trouver un numero libre
-        for (let i = 1; i <= 60; i++) {
+        for (let i = 1; i <= 200; i++) {
           if (await tenterPseudo("Utilisateur" + i)) return true;
         }
-
-        // 3. Filet de securite si tout est pris
         return await tenterPseudo(
           "Utilisateur" + Math.floor(1000 + Math.random() * 9000)
         );
+      }
+
+      // Un pseudo encore par defaut, donc a personnaliser
+      function pseudoParDefaut() {
+        return /^Utilisateur\d+$/.test(permanentData.pseudo || "");
+      }
+
+      // Apres une partie : invite a personnaliser le pseudo,
+      // seulement s'il est reste celui attribue automatiquement
+      function proposerChangementPseudo() {
+        const ancien = document.getElementById("inviteePseudo");
+        if (ancien) ancien.remove();
+        if (!sessionUtilisateur || !pseudoParDefaut()) return;
+
+        const bloc = document.createElement("div");
+        bloc.id = "inviteePseudo";
+        bloc.style.cssText =
+          "background:rgba(52,152,219,.12);border:1px solid #3498db;" +
+          "border-radius:10px;padding:11px 14px;margin:14px auto 0;" +
+          "max-width:330px;font-size:13px;color:#ddd;line-height:1.5";
+        bloc.innerHTML =
+          "Tu joues sous le pseudo " +
+          "<b style='color:#3498db'>" + echapper(permanentData.pseudo) + "</b>.<br>" +
+          "<button onclick='allerChangerPseudo()' style='margin-top:8px;" +
+          "padding:7px 15px;background:#3498db;border:none;border-radius:7px;" +
+          "color:#fff;font-weight:bold;cursor:pointer;font-size:13px'>" +
+          "Choisir un vrai pseudo</button>";
+
+        const boutons = gameOverDiv.querySelector("button");
+        if (boutons && boutons.parentElement) {
+          boutons.parentElement.insertBefore(bloc, boutons);
+        } else {
+          gameOverDiv.appendChild(bloc);
+        }
+      }
+
+      // Renvoie vers le classement pour changer de pseudo
+      function allerChangerPseudo() {
+        backToHub();
+        setTimeout(() => {
+          openHubLeaderboard();
+          const champ = document.getElementById("pseudoInput");
+          if (champ) {
+            champ.focus();
+            champ.select();
+          }
+        }, 350);
       }
 
       async function sauvegarderEnLigne() {
@@ -12406,6 +12448,7 @@
         document.getElementById("finalKills").textContent = kills;
         document.getElementById("finalTime").textContent = gameTime;
         gameOverDiv.style.display = "block";
+        proposerChangementPseudo();
 
         // Avertissement si des anomalies ont ete detectees
         const ancienAvis = document.getElementById("runFlagNotice");
