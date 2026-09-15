@@ -4331,6 +4331,65 @@
         </div>
 
         <!-- ========== ÉCRAN D'ÉQUIPEMENT STYLE ARCHERO ========== -->
+        <!-- Filtre de butin -->
+        <div
+          id="filtreLootEcran"
+          style="
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.78);
+            z-index: 9000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+          "
+          onclick="if(event.target===this) fermerFiltreLoot()"
+        >
+          <div
+            style="
+              background: #12122a;
+              border: 2px solid #8e44ad;
+              border-radius: 16px;
+              padding: 22px;
+              max-width: 460px;
+              width: 100%;
+            "
+          >
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 6px;
+              "
+            >
+              <span style="font-size: 22px">♻️</span>
+              <h2 style="color: #8e44ad; font-size: 18px; margin: 0; flex: 1">
+                Filtre de butin
+              </h2>
+              <button
+                onclick="fermerFiltreLoot()"
+                style="
+                  background: none;
+                  border: none;
+                  color: #888;
+                  font-size: 24px;
+                  cursor: pointer;
+                  line-height: 1;
+                "
+              >
+                &times;
+              </button>
+            </div>
+            <p style="color: #999; font-size: 13px; margin-bottom: 18px">
+              Choisis les raretés que tu veux garder. Les autres seront
+              recyclées en pièces automatiquement.
+            </p>
+            <div id="listeFiltreLoot"></div>
+          </div>
+        </div>
+
         <div id="equipmentScreen">
           <div class="equip-header">
             <button class="equip-back-btn" onclick="closeEquipmentScreen()">
@@ -4356,6 +4415,13 @@
               Par qualité
             </button>
             <button class="forge-btn" onclick="openForge()">🔨 Forgeron</button>
+            <button
+              class="quality-filter-btn"
+              style="left: auto; right: 140px; background: #8e44ad"
+              onclick="ouvrirFiltreLoot()"
+            >
+              ♻️ Filtre
+            </button>
 
             <div class="equip-character-area">
               <!-- Slots d'équipement -->
@@ -7895,8 +7961,9 @@
           if (Math.random() * 100 < chance) {
             // Drop réussi !
             const item = generateRandomItem(rarity);
-            addItemToInventory(item);
-            showLootDropPopup(item);
+            if (addItemToInventory(item)) {
+              showLootDropPopup(item);
+            }
             return true;
           }
         }
@@ -7936,11 +8003,136 @@
         };
       }
 
-      // Ajouter un item à l'inventaire
+
+      // ====== INTERFACE DU FILTRE DE BUTIN ======
+      const RARETES = [
+        { id: "common", nom: "Commun", couleur: "#95a5a6" },
+        { id: "rare", nom: "Rare", couleur: "#3498db" },
+        { id: "epic", nom: "Épique", couleur: "#9b59b6" },
+        { id: "legendary", nom: "Légendaire", couleur: "#f1c40f" },
+      ];
+
+      function ouvrirFiltreLoot() {
+        afficherFiltreLoot();
+        document.getElementById("filtreLootEcran").style.display = "flex";
+      }
+
+      function fermerFiltreLoot() {
+        document.getElementById("filtreLootEcran").style.display = "none";
+      }
+
+      function afficherFiltreLoot() {
+        const zone = document.getElementById("listeFiltreLoot");
+        if (!zone) return;
+        const f = filtreLoot();
+
+        zone.innerHTML = RARETES.map((r) => {
+          const garde = f[r.id] !== false;
+          return (
+            "<div style='display:flex;align-items:center;gap:12px;padding:12px;" +
+            "background:rgba(255,255,255,.04);border-radius:10px;margin-bottom:9px;" +
+            "border-left:3px solid " + r.couleur + "'>" +
+            "<div style='flex:1'>" +
+            "<div style='color:" + r.couleur + ";font-weight:bold;font-size:14px'>" +
+            r.nom + "</div>" +
+            "<div style='color:#777;font-size:11px'>" +
+            (garde
+              ? "Gardé dans l'inventaire"
+              : "Recyclé pour " + VALEUR_RECYCLAGE[r.id] + " pièces") +
+            "</div></div>" +
+            "<button onclick='basculerFiltre(\"" + r.id + "\")' " +
+            "style='width:54px;height:30px;border-radius:15px;cursor:pointer;" +
+            "border:1px solid " + (garde ? r.couleur : "#555") + ";" +
+            "background:" + (garde ? r.couleur + "55" : "rgba(255,255,255,.06)") + ";" +
+            "position:relative;padding:0'>" +
+            "<span style='position:absolute;top:3px;" +
+            (garde ? "right:3px" : "left:3px") +
+            ";width:22px;height:22px;border-radius:50%;background:" +
+            (garde ? r.couleur : "#777") + ";transition:.2s'></span>" +
+            "</button></div>"
+          );
+        }).join("");
+
+        const actives = RARETES.filter((r) => f[r.id] !== false).length;
+        if (actives === 0) {
+          zone.innerHTML +=
+            "<p style='color:#e74c3c;font-size:12px;text-align:center;margin-top:4px'>" +
+            "⚠️ Tout est recyclé : tu ne ramasseras plus aucun équipement.</p>";
+        }
+      }
+
+      // ====== FILTRE DE BUTIN ======
+      // Le joueur choisit les raretes qu'il garde. Les autres sont
+      // recyclees en pieces au lieu d'encombrer l'inventaire.
+      const VALEUR_RECYCLAGE = {
+        common: 25,
+        rare: 80,
+        epic: 250,
+        legendary: 800,
+      };
+
+      function filtreLoot() {
+        if (!permanentData.filtreLoot) {
+          // Par defaut on garde tout
+          permanentData.filtreLoot = {
+            common: true,
+            rare: true,
+            epic: true,
+            legendary: true,
+          };
+        }
+        return permanentData.filtreLoot;
+      }
+
+      function basculerFiltre(rarete) {
+        const f = filtreLoot();
+        f[rarete] = !f[rarete];
+        savePermanentData();
+        afficherFiltreLoot();
+      }
+
+      // Ajouter un item à l'inventaire, ou le recycler s'il est filtre
       function addItemToInventory(item) {
         initEquipmentData();
+        const f = filtreLoot();
+
+        if (f[item.rarity] === false) {
+          const gain = VALEUR_RECYCLAGE[item.rarity] || 25;
+          permanentData.coins += gain;
+          savePermanentData();
+          showRecyclagePopup(item, gain);
+          return false; // pas garde
+        }
+
         permanentData.inventory.push(item);
         savePermanentData();
+        return true;
+      }
+
+      // Notification discrete quand un objet est recycle
+      function showRecyclagePopup(item, gain) {
+        const popup = document.createElement("div");
+        popup.className = "loot-drop-popup";
+        popup.style.borderLeft = "4px solid #7f8c8d";
+        popup.innerHTML =
+          '<div style="font-size:24px;flex-shrink:0;opacity:.5">' +
+          item.icon + "</div>" +
+          '<div style="min-width:0">' +
+          '<div style="font-size:10px;color:#888;letter-spacing:1px">♻️ RECYCLÉ</div>' +
+          '<div style="font-size:13px;color:#bbb;overflow:hidden;' +
+          'text-overflow:ellipsis;white-space:nowrap">' + item.name + "</div>" +
+          '<div style="font-size:11px;color:#f1c40f">+' + gain + " pièces</div></div>";
+        const dejaLa = document.querySelectorAll(".loot-drop-popup").length;
+        popup.style.bottom = 20 + dejaLa * 72 + "px";
+        document.body.appendChild(popup);
+        setTimeout(() => {
+          if (popup.parentElement) {
+            popup.style.transition = "opacity .3s, transform .3s";
+            popup.style.opacity = "0";
+            popup.style.transform = "translateX(-120%)";
+            setTimeout(() => popup.remove(), 320);
+          }
+        }, 2600);
       }
 
       // Afficher le popup de loot
