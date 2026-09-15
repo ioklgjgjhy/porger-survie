@@ -1689,6 +1689,51 @@
       .turret.palier-3::after { background: #f8c471; box-shadow: 0 0 8px #f39c12; }
       .turret.palier-4::after { background: #f1948a; box-shadow: 0 0 12px #e74c3c; }
 
+      /* Canon secondaire monte au-dessus de la tourelle */
+      .canon-secondaire {
+        position: absolute;
+        top: -11px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 15px;
+        height: 12px;
+        background: linear-gradient(145deg, #85929e, #34495e);
+        border: 1px solid #aeb6bf;
+        border-radius: 3px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5),
+          inset 0 1px 2px rgba(255, 255, 255, 0.35);
+        z-index: 9;
+      }
+
+      .canon-secondaire::after {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 4px;
+        height: 9px;
+        background: #2c3e50;
+        border-radius: 2px;
+      }
+
+      .canon-secondaire[data-niveau="2"] { width: 17px; border-color: #58d68d; }
+      .canon-secondaire[data-niveau="3"] {
+        width: 19px;
+        border-color: #bb8fce;
+        box-shadow: 0 2px 6px rgba(0,0,0,.5), 0 0 8px rgba(155,89,182,.6);
+      }
+      .canon-secondaire[data-niveau="4"] {
+        width: 21px;
+        border-color: #f5b041;
+        box-shadow: 0 2px 6px rgba(0,0,0,.5), 0 0 10px rgba(243,156,18,.7);
+      }
+      .canon-secondaire[data-niveau="5"] {
+        width: 23px;
+        border-color: #ec7063;
+        box-shadow: 0 2px 7px rgba(0,0,0,.5), 0 0 14px rgba(231,76,60,.85);
+      }
+
       .turret::before {
         content: "";
         width: 18px;
@@ -5023,7 +5068,28 @@
               </div>
             </div>
           </div>
+          <div class="upgrade-option" id="upgradeCanon2">
+            <div class="upgrade-icon">🔫</div>
+            <div class="upgrade-info">
+              <div class="upgrade-name" id="canon2Name">Second canon</div>
+              <div class="upgrade-price">
+                💰 <span id="canon2Price">300</span> $
+              </div>
+            </div>
+          </div>
         </div>
+        <p
+          id="canon2Info"
+          style="
+            font-size: 12px;
+            color: #888;
+            margin: 6px 0 0;
+            line-height: 1.4;
+          "
+        >
+          Petit canon monté au-dessus. Tire vite, portée courte, et vise
+          les zombies que le canon principal ne cible pas.
+        </p>
         <button id="closeTurretUpgrade">❌ Fermer</button>
       </div>
 
@@ -6230,6 +6296,38 @@
         document.getElementById("rangeUpgradePrice").textContent = rangePrice;
         document.getElementById("damageUpgradePrice").textContent = damagePrice;
 
+        // Second canon : achat puis ameliorations successives
+        const c2 = turret.canon2;
+        const prixCanon2 = c2 ? 250 + c2.niveau * 180 : 300;
+        const nomCanon2 = c2
+          ? "Canon secondaire niv." + (c2.niveau + 1)
+          : "Second canon";
+        document.getElementById("canon2Price").textContent = prixCanon2;
+        document.getElementById("canon2Name").textContent = nomCanon2;
+
+        const btnCanon2 = document.getElementById("upgradeCanon2");
+        const maxAtteint = c2 && c2.niveau >= 5;
+        if (maxAtteint) {
+          document.getElementById("canon2Name").textContent =
+            "Canon secondaire MAX";
+          document.getElementById("canon2Price").textContent = "—";
+          btnCanon2.classList.add("disabled");
+        } else if (playerMoney < prixCanon2) {
+          btnCanon2.classList.add("disabled");
+        } else {
+          btnCanon2.classList.remove("disabled");
+        }
+
+        const info = document.getElementById("canon2Info");
+        if (info) {
+          info.textContent = c2
+            ? "Niveau " + c2.niveau + " — tire plus vite et plus fort à " +
+              "chaque amélioration. Vise toujours une cible différente " +
+              "du canon principal."
+            : "Petit canon monté au-dessus. Tire vite, portée courte, et " +
+              "vise les zombies que le canon principal ne cible pas.";
+        }
+
         // Mettre à jour l'état des boutons
         const upgradeRange = document.getElementById("upgradeRange");
         const upgradeDamage = document.getElementById("upgradeDamage");
@@ -6268,6 +6366,35 @@
           "palier-1", "palier-2", "palier-3", "palier-4"
         );
         if (palier > 0) t.element.classList.add("palier-" + palier);
+      }
+
+      // Acheter ou ameliorer le canon secondaire
+      function upgradeTurretCanon2() {
+        const t = selectedTurretForUpgrade;
+        if (!t) return;
+        if (t.canon2 && t.canon2.niveau >= 5) return;
+
+        const prix = t.canon2 ? 250 + t.canon2.niveau * 180 : 300;
+        if (playerMoney < prix) return;
+
+        playerMoney -= prix;
+        if (!t.canon2) {
+          t.canon2 = { niveau: 1, lastShot: 0 };
+          // Petit canon visible au-dessus de la tourelle
+          const c = document.createElement("div");
+          c.className = "canon-secondaire";
+          t.canon2.element = c;
+          t.element.appendChild(c);
+          noterAchat("Second canon", prix);
+        } else {
+          t.canon2.niveau++;
+          noterAchat("Canon secondaire niv." + t.canon2.niveau, prix);
+        }
+        t.canon2.element.dataset.niveau = t.canon2.niveau;
+
+        updateMoneyDisplay();
+        updateTurretUpgradeMenu();
+        playPickupSound();
       }
 
       // Améliorer la portée de la tourelle
@@ -10709,6 +10836,9 @@
       document
         .getElementById("upgradeDamage")
         .addEventListener("click", upgradeTurretDamage);
+      document
+        .getElementById("upgradeCanon2")
+        .addEventListener("click", upgradeTurretCanon2);
 
       // Event listeners pause menu
       resumeButton.addEventListener("click", togglePauseMenu);
@@ -11711,6 +11841,35 @@
         const currentTime = Date.now();
 
         turrets.forEach((turret) => {
+          // --- Canon secondaire : protege la tourelle en visant
+          // les zombies que le canon principal ne cible pas ---
+          if (turret.canon2) {
+            const c2 = turret.canon2;
+            const cadence = 320 - c2.niveau * 25; // plus rapide a chaque niveau
+            if (currentTime - (c2.lastShot || 0) >= cadence / gameSpeed) {
+              const portee2 = turret.range * 0.55 + c2.niveau * 18;
+              let cible2 = null;
+              let d2 = Infinity;
+              enemies.forEach((e) => {
+                // On ignore la cible du canon principal
+                if (e === turret.cibleActuelle) return;
+                const dx = e.x - turret.x;
+                const dy = e.y - turret.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < d2 && dist <= portee2) {
+                  d2 = dist;
+                  cible2 = e;
+                }
+              });
+              if (cible2) {
+                c2.lastShot = currentTime;
+                const ang = Math.atan2(cible2.y - turret.y, cible2.x - turret.x);
+                const deg2 = (turret.damage || 20) * (0.6 + c2.niveau * 0.15);
+                createBullet(turret.x, turret.y - 6, ang, deg2);
+              }
+            }
+          }
+
           const turretAttackSpeed = turret.attackSpeed || 600;
           if (
             currentTime - (turret.lastShot || 0) <
@@ -11732,6 +11891,8 @@
               closestEnemy = enemy;
             }
           });
+
+          turret.cibleActuelle = closestEnemy;
 
           if (closestEnemy) {
             turret.lastShot = currentTime;
