@@ -8111,16 +8111,36 @@
           permanentData.scrolls.scroll_universal--;
         }
 
-        // Améliorer l'item - chercher par UID au lieu de l'index
-        const itemIndex = permanentData.inventory.findIndex(i => i.uid === selectedItem.uid);
-        if (itemIndex === -1) {
+        // L'objet peut etre dans l'inventaire OU deja equipe
+        let item = null;
+        let itemIndex = permanentData.inventory.findIndex(
+          (i) => i.uid === selectedItem.uid
+        );
+
+        if (itemIndex !== -1) {
+          item = permanentData.inventory[itemIndex];
+        } else {
+          // Objet equipe : on le trouve dans les emplacements
+          const emplacement = Object.keys(permanentData.equipped).find(
+            (k) =>
+              permanentData.equipped[k] &&
+              permanentData.equipped[k].uid === selectedItem.uid
+          );
+          if (emplacement) {
+            item = permanentData.equipped[emplacement];
+          }
+        }
+
+        if (!item) {
           alert("Item introuvable !");
           return;
         }
-        const item = permanentData.inventory[itemIndex];
+
         item.level = (item.level || 1) + 1;
 
         savePermanentData();
+        // Les statistiques dependent de l'equipement : on les recalcule
+        if (typeof updateEquipmentStats === "function") updateEquipmentStats();
         showItemDetails(item, itemIndex);
         renderScrolls();
         renderEquipmentInventory();
@@ -8223,6 +8243,54 @@
       }
 
 
+
+      // ====== RECYCLAGE EN MASSE ======
+      // Convertit d'un coup tous les objets sous un certain seuil
+      const ORDRE_RARETE = ["common", "rare", "epic", "legendary"];
+
+      function apercuRecyclage(seuil) {
+        const limite = ORDRE_RARETE.indexOf(seuil);
+        const concernes = (permanentData.inventory || []).filter(
+          (it) => ORDRE_RARETE.indexOf(it.rarity) < limite
+        );
+        const total = concernes.reduce(
+          (t, it) => t + (VALEUR_RECYCLAGE[it.rarity] || 25), 0
+        );
+        return { nombre: concernes.length, pieces: total };
+      }
+
+      function recyclerEnMasse(seuil) {
+        const a = apercuRecyclage(seuil);
+        if (a.nombre === 0) {
+          showHubMessage("Aucun objet à recycler.");
+          return;
+        }
+        const noms = { rare: "Rare", epic: "Épique", legendary: "Légendaire" };
+        if (
+          !confirm(
+            "Recycler " + a.nombre + " objet(s) en dessous de " +
+            noms[seuil] + " ?\n\n" +
+            "Tu récupères " + a.pieces.toLocaleString("fr-FR") + " pièces.\n" +
+            "Les objets équipés ne sont pas touchés."
+          )
+        )
+          return;
+
+        const limite = ORDRE_RARETE.indexOf(seuil);
+        permanentData.inventory = permanentData.inventory.filter(
+          (it) => ORDRE_RARETE.indexOf(it.rarity) >= limite
+        );
+        permanentData.coins += a.pieces;
+        savePermanentData();
+        updateHubDisplay();
+        renderEquipmentInventory();
+        afficherFiltreLoot();
+        showHubMessage(
+          "♻️ " + a.nombre + " objet(s) recyclés, +" +
+          a.pieces.toLocaleString("fr-FR") + " pièces"
+        );
+      }
+
       // ====== INTERFACE DU FILTRE DE BUTIN ======
       const RARETES = [
         { id: "common", nom: "Commun", couleur: "#95a5a6" },
@@ -8271,6 +8339,32 @@
             "</button></div>"
           );
         }).join("");
+
+        // Boutons de recyclage en masse de l'inventaire existant
+        zone.innerHTML +=
+          "<div style='border-top:1px solid #333;margin-top:14px;padding-top:14px'>" +
+          "<div style='color:#888;font-size:12px;margin-bottom:9px'>" +
+          "Recycler l'inventaire actuel</div>" +
+          ["rare", "epic", "legendary"]
+            .map((seuil) => {
+              const a = apercuRecyclage(seuil);
+              const noms = { rare: "Rare", epic: "Épique", legendary: "Légendaire" };
+              return (
+                "<button onclick='recyclerEnMasse(\"" + seuil + "\")' " +
+                "style='width:100%;padding:9px;margin-bottom:6px;" +
+                "background:rgba(255,255,255,.05);border:1px solid #555;" +
+                "border-radius:8px;color:" + (a.nombre ? "#ddd" : "#666") + ";" +
+                "cursor:pointer;font-size:12px;text-align:left'>" +
+                "Tout sous <b>" + noms[seuil] + "</b> " +
+                "<span style='float:right;color:#f1c40f'>" +
+                (a.nombre
+                  ? a.nombre + " obj. → " + a.pieces.toLocaleString("fr-FR") + " 💰"
+                  : "aucun") +
+                "</span></button>"
+              );
+            })
+            .join("") +
+          "</div>";
 
         const actives = RARETES.filter((r) => f[r.id] !== false).length;
         if (actives === 0) {
@@ -9857,9 +9951,12 @@
           "<p style='color:#e74c3c;font-weight:bold;margin-bottom:8px'>" +
           "Renaissance " + niv + "</p>" +
           "<p style='color:#ddd;font-size:14px;line-height:1.6'>" +
-          "Tu repars de zéro : pièces, gemmes, armures, compétences, tourelles " +
-          "et équipement sont remis à zéro. En échange, tu gardes un bonus " +
-          "définitif qui s'applique à toutes tes parties suivantes.</p></div>" +
+          "Tu repars de zéro : <b>pièces, armures, compétences et tourelles</b> " +
+          "sont remises à zéro.<br>" +
+          "Tu conserves : <b style='color:#2ecc71'>gemmes, équipement, objets " +
+          "améliorés et parchemins</b>.<br>" +
+          "En échange, tu gardes un bonus définitif qui s'applique à toutes " +
+          "tes parties suivantes.</p></div>" +
 
           "<div style='background:rgba(30,30,60,0.75);border-radius:12px;padding:16px;margin-bottom:16px'>" +
           "<p style='color:#2ecc71;font-weight:bold;margin-bottom:10px'>Ton bonus</p>" +
@@ -9892,10 +9989,14 @@
       function lancerRenaissance() {
         if (!conditionRenaissanceRemplie()) return;
         const niv = niveauRenaissance() + 1;
+        const degatsFuturs = Math.round(Math.min(0.4, Math.sqrt(niv) * 0.04) * 100);
+        const piecesFutures = Math.round(Math.min(1, niv * 0.1) * 100);
         const confirmation = confirm(
           "Renaître ?\n\n" +
-            "Tu perds : pièces, gemmes, armures, compétences, tourelles et équipement.\n" +
-            "Tu gagnes définitivement : +" + niv * 10 + "% de dégâts et +" + niv * 10 + "% de pièces.\n\n" +
+            "Tu perds : pièces, armures, compétences et tourelles.\n" +
+            "Tu gardes : gemmes, équipement, objets améliorés et parchemins.\n\n" +
+            "Tu gagnes définitivement : +" + degatsFuturs + "% de dégâts et +" +
+            piecesFutures + "% de pièces.\n\n" +
             "Tes statistiques et tes scores du classement sont conservés."
         );
         if (!confirmation) return;
@@ -9908,15 +10009,11 @@
 
         permanentData.renaissances = niv;
         permanentData.coins = 0;
-        permanentData.gems = 0;
+        // Les gemmes et l'equipement sont conserves : ce sont des
+        // acquis lents, les reperdre a chaque renaissance decourage
         permanentData.shopLevels = {};
         permanentData.skillLevels = {};
         permanentData.turretLevels = {};
-        permanentData.inventory = [];
-        permanentData.equipped = {
-          weapon: null, helmet: null, armor: null,
-          ring: null, necklace: null, boots: null,
-        };
         permanentData.permHealth = 0;
         permanentData.permDamage = 0;
         permanentData.permArmor = 0;
