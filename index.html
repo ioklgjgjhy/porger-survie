@@ -7453,6 +7453,9 @@
 
       // Fermer tous les sous-menus
       function closeHubSubmenu() {
+        if (typeof arreterRafraichissement === "function") {
+          arreterRafraichissement();
+        }
         document.querySelectorAll(".hub-submenu").forEach((menu) => {
           menu.style.display = "none";
         });
@@ -9216,6 +9219,37 @@
         }
       }
 
+      // ====== RAFRAICHISSEMENT AUTOMATIQUE ======
+      // Tant que le classement est ouvert, on le recharge regulierement
+      // pour voir arriver les scores des autres sans recharger la page.
+      let minuteurClassement = null;
+      let replayOuvert = false;
+      const DELAI_RAFRAICHISSEMENT = 15000;
+
+      function demarrerRafraichissement() {
+        arreterRafraichissement();
+        minuteurClassement = setInterval(() => {
+          const ecran = document.getElementById("hubLeaderboardMenu");
+          // On s'arrete si l'ecran n'est plus visible
+          if (!ecran || ecran.style.display !== "flex") {
+            arreterRafraichissement();
+            return;
+          }
+          // On ne touche a rien pendant une action en cours
+          if (replayOuvert || suppressionEnCours) return;
+          // Ni pendant que le joueur ecrit son pseudo
+          const actif = document.activeElement;
+          if (actif && actif.id === "pseudoInput") return;
+
+          chargerClassement().catch(() => {});
+        }, DELAI_RAFRAICHISSEMENT);
+      }
+
+      function arreterRafraichissement() {
+        clearInterval(minuteurClassement);
+        minuteurClassement = null;
+      }
+
       function openHubLeaderboard() {
         closeHubSubmenu();
         document.getElementById("hubLeaderboardMenu").style.display = "flex";
@@ -9226,11 +9260,14 @@
         } catch (e) {
           console.error("affichage compte :", e);
         }
+        replayOuvert = false;
         // Le classement ne doit jamais casser l'ouverture de l'ecran
         chargerClassement().catch((e) => console.error("classement :", e));
+        demarrerRafraichissement();
       }
 
       async function chargerClassement() {
+        replayOuvert = false;
         const zone = document.getElementById("leaderboardList");
         zone.innerHTML = "<p style='color:#888'>Chargement…</p>";
 
@@ -9266,6 +9303,11 @@
           }
 
           html +=
+            "<div style='font-size:11px;color:#666;margin-bottom:8px;" +
+            "display:flex;align-items:center;gap:6px'>" +
+            "<span style='width:6px;height:6px;border-radius:50%;" +
+            "background:#2ecc71;display:inline-block'></span>" +
+            "Mise à jour automatique</div>" +
             "<table style='width:100%;border-collapse:collapse;font-size:14px'>" +
             "<tr style='color:#2ecc71;text-align:left'>" +
             "<th style='padding:8px'>#</th><th>Joueur</th>" +
@@ -9563,6 +9605,7 @@
       }
 
       function afficherReplay(sc) {
+        replayOuvert = true;
         const zone = document.getElementById("leaderboardList");
         const j = sc.journal || [];
         const date = new Date(sc.cree_le).toLocaleString("fr-FR");
