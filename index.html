@@ -4497,8 +4497,9 @@
               </button>
             </div>
             <p style="color: #999; font-size: 13px; margin: 6px 0 14px">
-              Décris ce qui ne va pas. Une capture d'écran aide beaucoup à
-              comprendre le problème.
+              Décris ce qui ne va pas. Une capture d'écran aide beaucoup — tu
+              peux la <b>coller</b> (Cmd+V), la <b>glisser</b> ici, ou la
+              choisir avec le bouton.
             </p>
             <textarea
               id="supportTexte"
@@ -4534,7 +4535,7 @@
                 cursor: pointer;
               "
             >
-              📎 Joindre une capture
+              📎 Choisir une capture
               <input
                 type="file"
                 id="supportFichier"
@@ -9346,7 +9347,7 @@
       // ====== RAFRAICHISSEMENT AUTOMATIQUE ======
       // Tant que le classement est ouvert, on le recharge regulierement
       // pour voir arriver les scores des autres sans recharger la page.
-      const VERSION_JEU = "0.93";
+      const VERSION_JEU = "0.94";
       let minuteurClassement = null;
       let replayOuvert = false;
       const DELAI_RAFRAICHISSEMENT = 15000;
@@ -11321,6 +11322,7 @@
         document.getElementById("supportMessage").textContent = "";
         document.getElementById("supportApercu").innerHTML = "";
         f.style.display = "flex";
+        initCollageSupport();
         document.getElementById("supportTexte").focus();
       }
 
@@ -11329,9 +11331,13 @@
         captureJointe = null;
       }
 
-      // Lecture d'une capture d'ecran choisie par le joueur
+      // Lecture d'une capture, depuis un fichier, un collage ou un glisser
       function chargerCapture(input) {
         const fichier = input.files && input.files[0];
+        if (fichier) traiterImage(fichier);
+      }
+
+      function traiterImage(fichier) {
         const apercu = document.getElementById("supportApercu");
         const msg = document.getElementById("supportMessage");
         if (!fichier) return;
@@ -11339,7 +11345,6 @@
         if (!fichier.type.startsWith("image/")) {
           msg.style.color = "#e74c3c";
           msg.textContent = "Ce fichier n'est pas une image.";
-          input.value = "";
           return;
         }
 
@@ -11371,6 +11376,52 @@
           img.src = lecteur.result;
         };
         lecteur.readAsDataURL(fichier);
+      }
+
+      // Coller une capture directement (Cmd+V ou Ctrl+V)
+      function initCollageSupport() {
+        const ecran = document.getElementById("ecranSupport");
+        if (!ecran || ecran.dataset.pret) return;
+        ecran.dataset.pret = "1";
+
+        document.addEventListener("paste", (e) => {
+          if (ecran.style.display !== "flex") return;
+          const elements = (e.clipboardData || {}).items || [];
+          for (const el of elements) {
+            if (el.type && el.type.startsWith("image/")) {
+              e.preventDefault();
+              traiterImage(el.getAsFile());
+              const msg = document.getElementById("supportMessage");
+              msg.style.color = "#2ecc71";
+              msg.textContent = "Capture collée depuis le presse-papiers.";
+              return;
+            }
+          }
+        });
+
+        // Glisser-deposer une image sur la fenetre
+        ["dragenter", "dragover"].forEach((ev) =>
+          ecran.addEventListener(ev, (e) => {
+            e.preventDefault();
+            ecran.style.outline = "3px dashed #3498db";
+            ecran.style.outlineOffset = "-14px";
+          })
+        );
+        ["dragleave", "drop"].forEach((ev) =>
+          ecran.addEventListener(ev, (e) => {
+            e.preventDefault();
+            ecran.style.outline = "none";
+          })
+        );
+        ecran.addEventListener("drop", (e) => {
+          const f = e.dataTransfer && e.dataTransfer.files[0];
+          if (f) {
+            traiterImage(f);
+            const msg = document.getElementById("supportMessage");
+            msg.style.color = "#2ecc71";
+            msg.textContent = "Capture ajoutée.";
+          }
+        });
       }
 
       function retirerCapture() {
