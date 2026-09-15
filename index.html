@@ -9290,9 +9290,18 @@
         return permanentData.renaissances || 0;
       }
 
-      // Bonus permanent : +10% de degats et +10% de pieces par renaissance
+      // Bonus permanent de degats : +4% par renaissance, avec rendements
+      // decroissants et un plafond a +40%. Sans cela, quelques
+      // renaissances suffisaient a rendre le jeu trivial.
       function bonusRenaissance() {
-        return niveauRenaissance() * 0.1;
+        const n = niveauRenaissance();
+        return Math.min(0.4, Math.sqrt(n) * 0.04);
+      }
+
+      // Bonus sur les pieces gagnees : plus genereux, il ne desequilibre
+      // pas le combat
+      function bonusPiecesRenaissance() {
+        return Math.min(1.0, niveauRenaissance() * 0.1);
       }
 
       function conditionRenaissanceRemplie() {
@@ -9318,7 +9327,9 @@
         const seuil = seuilRenaissance();
         const pret = conditionRenaissanceRemplie();
         const bonusActuel = Math.round(bonusRenaissance() * 100);
-        const bonusFutur = Math.round((niv + 1) * 10);
+        const piecesActuel = Math.round(bonusPiecesRenaissance() * 100);
+        const bonusFutur = Math.round(Math.min(0.4, Math.sqrt(niv + 1) * 0.04) * 100);
+        const piecesFutur = Math.round(Math.min(1, (niv + 1) * 0.1) * 100);
 
         zone.innerHTML =
           "<div style='background:rgba(231,76,60,0.1);border:2px solid #e74c3c;" +
@@ -9333,10 +9344,13 @@
           "<div style='background:rgba(30,30,60,0.75);border-radius:12px;padding:16px;margin-bottom:16px'>" +
           "<p style='color:#2ecc71;font-weight:bold;margin-bottom:10px'>Ton bonus</p>" +
           "<p style='color:#ddd;font-size:14px'>Actuellement : <b style='color:#2ecc71'>+" +
-          bonusActuel + "% de dégâts</b> et <b style='color:#f1c40f'>+" + bonusActuel +
+          bonusActuel + "% de dégâts</b> et <b style='color:#f1c40f'>+" + piecesActuel +
           "% de pièces</b></p>" +
           "<p style='color:#aaa;font-size:14px;margin-top:6px'>Après renaissance : <b style='color:#2ecc71'>+" +
-          bonusFutur + "%</b> et <b style='color:#f1c40f'>+" + bonusFutur + "%</b></p></div>" +
+          bonusFutur + "% de dégâts</b> et <b style='color:#f1c40f'>+" + piecesFutur +
+          "% de pièces</b></p>" +
+          "<p style='color:#777;font-size:12px;margin-top:8px'>Le gain de dégâts " +
+          "ralentit à chaque renaissance et plafonne à +40%.</p></div>" +
 
           "<div style='background:rgba(30,30,60,0.75);border-radius:12px;padding:16px;margin-bottom:16px'>" +
           "<p style='color:#3498db;font-weight:bold;margin-bottom:10px'>Condition</p>" +
@@ -10193,11 +10207,14 @@
       // Ajouter des pièces après une partie (appelé quand le joueur meurt)
       function addCoinsAfterGame(amount, killCount, waveReached) {
         // Bonus permanent de renaissance sur les pieces
-        amount = Math.round(amount * (1 + bonusRenaissance()));
+        amount = Math.round(amount * (1 + bonusPiecesRenaissance()));
         permanentData.coins += amount;
         permanentData.totalKills += killCount;
         permanentData.totalMoneyEarned += amount;
-        if (waveReached > permanentData.bestWave) {
+        // Une partie marquee invalide (saut de vague, anomalie) ne compte
+        // pas pour la meilleure vague, sinon la renaissance se debloque
+        // sans avoir ete meritee
+        if (runValid && waveReached > permanentData.bestWave) {
           permanentData.bestWave = waveReached;
         }
         savePermanentData();
