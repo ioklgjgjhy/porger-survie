@@ -8161,9 +8161,50 @@
       // progression et a apparaitre dans le classement.
       let sessionUtilisateur = null; // { token, id, email }
 
-      // Compte developpeur : acces aux raccourcis de test
+      // ====== COMPTES DEVELOPPEURS ======
+      // Identifies par l'empreinte de leur adresse Google, pour ne pas
+      // exposer d'adresses en clair dans un depot public.
+      // Pour ajouter quelqu'un : calculer sha256 de son adresse en
+      // minuscules et ajouter l'empreinte ici.
+      const EMPREINTES_DEV = [
+        "033880cb166fb0af70724ce3088a1cdf78d750b24541f1303da80cdeca480f66", // Erwan
+        "2ecc4657eeb60b0124ec26a4550fa097b37a62c7f3e6f4c3e724bfff30ed46cc", // Fabien
+      ];
+      // Identifiant du fondateur : seul compte autorise a supprimer
+      // des scores, verifie aussi cote serveur
       const ID_DEVELOPPEUR = "236a066a-08c4-4a71-b6f9-ec7855b8834e";
+
+      let empreinteSession = null;
+
+      async function calculerEmpreinte(texte) {
+        const data = new TextEncoder().encode(texte.trim().toLowerCase());
+        const buf = await crypto.subtle.digest("SHA-256", data);
+        return [...new Uint8Array(buf)]
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+      }
+
+      // Calcule l'empreinte une fois la session etablie
+      async function verifierDroitsDev() {
+        empreinteSession = null;
+        if (!sessionUtilisateur || !sessionUtilisateur.email) return;
+        try {
+          empreinteSession = await calculerEmpreinte(sessionUtilisateur.email);
+        } catch (e) {
+          console.error("droits dev :", e);
+        }
+      }
+
       function estDeveloppeur() {
+        if (!sessionUtilisateur) return false;
+        // Le fondateur est reconnu meme si l'empreinte n'est pas encore calculee
+        if (sessionUtilisateur.id === ID_DEVELOPPEUR) return true;
+        return empreinteSession !== null &&
+          EMPREINTES_DEV.includes(empreinteSession);
+      }
+
+      // Seul le fondateur peut supprimer des scores
+      function estFondateur() {
         return sessionUtilisateur && sessionUtilisateur.id === ID_DEVELOPPEUR;
       }
 
@@ -8281,6 +8322,7 @@
             console.error("profil :", e4);
           }
         }
+        await verifierDroitsDev();
         majAffichageCompte();
         afficherBadgeDev();
         chargerPodium().catch(() => {});
@@ -8738,7 +8780,9 @@
       let suppressionEnCours = null;
 
       function activerModeSuppression() {
-        if (!estDeveloppeur()) return;
+        if (!estFondateur()) {
+          return messageDev("Réservé au fondateur");
+        }
         modeSuppression = true;
         fermerPanneauDev();
         closeHubSubmenu();
