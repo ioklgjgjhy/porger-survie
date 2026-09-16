@@ -4460,6 +4460,80 @@
               title="Cette fonctionnalité est en cours de test, des bugs sont possibles"
               >BÊTA</span
             >
+            <button
+              id="boutonAdminClassement"
+              onclick="basculerOutilsAdmin()"
+              style="
+                display: none;
+                margin-left: 8px;
+                width: 30px;
+                height: 30px;
+                border-radius: 8px;
+                border: 1px solid #8e44ad;
+                background: rgba(142, 68, 173, 0.15);
+                color: #b07cc6;
+                font-size: 14px;
+                cursor: pointer;
+                padding: 0;
+              "
+              title="Outils de modération"
+            >
+              🛠️
+            </button>
+          </div>
+          <div
+            id="barreOutilsAdmin"
+            style="
+              display: none;
+              gap: 8px;
+              padding: 10px 14px;
+              background: rgba(142, 68, 173, 0.1);
+              border-bottom: 1px solid rgba(142, 68, 173, 0.3);
+              flex-wrap: wrap;
+            "
+          >
+            <button
+              onclick="activerModeSuppression()"
+              style="
+                padding: 6px 13px;
+                background: rgba(192, 57, 43, 0.15);
+                border: 1px solid #c0392b;
+                border-radius: 7px;
+                color: #e74c3c;
+                font-size: 12px;
+                cursor: pointer;
+              "
+            >
+              🎯 Mode suppression
+            </button>
+            <button
+              onclick="ouvrirModeration()"
+              style="
+                padding: 6px 13px;
+                background: rgba(142, 68, 173, 0.15);
+                border: 1px solid #8e44ad;
+                border-radius: 7px;
+                color: #b07cc6;
+                font-size: 12px;
+                cursor: pointer;
+              "
+            >
+              👁️ Toutes les parties
+            </button>
+            <button
+              onclick="ouvrirMessages()"
+              style="
+                padding: 6px 13px;
+                background: rgba(52, 152, 219, 0.15);
+                border: 1px solid #3498db;
+                border-radius: 7px;
+                color: #5dade2;
+                font-size: 12px;
+                cursor: pointer;
+              "
+            >
+              ✉️ Messages
+            </button>
           </div>
           <div class="submenu-content">
             <p
@@ -9477,7 +9551,7 @@
       // ====== RAFRAICHISSEMENT AUTOMATIQUE ======
       // Tant que le classement est ouvert, on le recharge regulierement
       // pour voir arriver les scores des autres sans recharger la page.
-      const VERSION_JEU = "1.03";
+      const VERSION_JEU = "1.04";
       let minuteurClassement = null;
       let replayOuvert = false;
       const DELAI_RAFRAICHISSEMENT = 15000;
@@ -9571,6 +9645,24 @@
         location.replace(location.pathname + "?maj=" + Date.now());
       }
 
+      // Outils de moderation, accessibles depuis le classement
+      function basculerOutilsAdmin() {
+        const barre = document.getElementById("barreOutilsAdmin");
+        if (!barre) return;
+        const ouvert = barre.style.display === "flex";
+        barre.style.display = ouvert ? "none" : "flex";
+      }
+
+      function majBoutonAdmin() {
+        const b = document.getElementById("boutonAdminClassement");
+        if (!b) return;
+        b.style.display = estFondateur() ? "block" : "none";
+        if (!estFondateur()) {
+          const barre = document.getElementById("barreOutilsAdmin");
+          if (barre) barre.style.display = "none";
+        }
+      }
+
       function openHubLeaderboard() {
         closeHubSubmenu();
         document.getElementById("hubLeaderboardMenu").style.display = "flex";
@@ -9582,6 +9674,7 @@
           console.error("affichage compte :", e);
         }
         replayOuvert = false;
+        majBoutonAdmin();
         // Le classement ne doit jamais casser l'ouverture de l'ecran
         chargerClassement().catch((e) => console.error("classement :", e));
         demarrerRafraichissement();
@@ -9707,6 +9800,10 @@
             "cursor:pointer;z-index:9996;padding:0;display:flex;" +
             "align-items:center;justify-content:center;opacity:.6;" +
             "transition:opacity .2s";
+          // Masque immediatement si une partie est en cours
+          if (typeof gameStarted !== "undefined" && gameStarted && !pauseMenuOpen) {
+            b.style.display = "none";
+          }
           b.textContent = "\u2709\ufe0f";
           b.onmouseover = () => (b.style.opacity = "1");
           b.onmouseout = () => (b.style.opacity = messagesNonLus ? "1" : ".6");
@@ -11459,16 +11556,6 @@
 
           "<div style='height:9px'></div>" +
 
-          ligne("\ud83c\udfaf", "Mode suppression", "Retirer un joueur du classement",
-            "#c0392b", null, "activerModeSuppression()", null) +
-
-          ligne("\ud83d\udc41\ufe0f", "Voir les parties", "Liste groupée par joueur",
-            "#8e44ad", null, "ouvrirModeration()", null) +
-
-          ligne("\u2709\ufe0f", "Messages reçus",
-            "Signalements envoyés par les joueurs",
-            "#3498db", null, "ouvrirMessages()", null) +
-
           ligne("\ud83c\udf81", "Tous les items",
             "Un exemplaire de chaque équipement du jeu",
             "#16a085", null, "devTousLesItems()", null) +
@@ -12204,11 +12291,19 @@
       // Adapte l'apparence du bouton selon qu'une adresse existe ou non
       // Masque le bouton pendant la partie, l'affiche dans les menus
       function majVisibiliteContact() {
-        const lien = document.getElementById("contactLink");
-        if (!lien) return;
         const enJeu =
           typeof gameStarted !== "undefined" && gameStarted && !pauseMenuOpen;
-        lien.style.display = enJeu ? "none" : "block";
+
+        const lien = document.getElementById("contactLink");
+        if (lien) lien.style.display = enJeu ? "none" : "block";
+
+        // Le bouton des messages suit la meme regle : hors des parties
+        const msg = document.getElementById("boutonMessages");
+        if (msg) msg.style.display = enJeu ? "none" : "flex";
+
+        // Et l'etiquette de version
+        const v = document.getElementById("etiquetteVersion");
+        if (v) v.style.display = enJeu ? "none" : "block";
       }
 
       function initContactButton() {
