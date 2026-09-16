@@ -7610,6 +7610,9 @@
         const etiq = document.getElementById("etiquetteVersion");
         if (etiq) etiq.textContent = "v" + VERSION_JEU;
         verifierMiseAJour();
+        if (typeof reenvoyerScoresEnAttente === "function") {
+          reenvoyerScoresEnAttente();
+        }
         if (typeof verifierMessages === "function") {
           verifierMessages();
           // Toutes les 2 minutes tant que le jeu est ouvert
@@ -9308,7 +9311,7 @@
           if (!ok) return;
         }
         try {
-          await fetch(
+          await requeteFiable(
             SUPABASE_URL + "/rest/v1/profils?id=eq." + sessionUtilisateur.id,
             {
               method: "PATCH",
@@ -9406,7 +9409,7 @@
       // ====== RAFRAICHISSEMENT AUTOMATIQUE ======
       // Tant que le classement est ouvert, on le recharge regulierement
       // pour voir arriver les scores des autres sans recharger la page.
-      const VERSION_JEU = "0.97";
+      const VERSION_JEU = "0.98";
       let minuteurClassement = null;
       let replayOuvert = false;
       const DELAI_RAFRAICHISSEMENT = 15000;
@@ -10268,6 +10271,96 @@
       }
 
       // Envoi du score en fin de partie
+      // ====== REQUETES FIABLES ======
+      // fetch ne leve pas d'erreur sur un refus du serveur : sans
+      // verifier la reponse, un score refuse disparaissait en silence.
+      // Ici on verifie, on renouvelle le jeton si besoin, et on reessaie.
+      async function requeteFiable(url, options, deuxiemeEssai) {
+        let r;
+        try {
+          r = await fetch(url, options);
+        } catch (e) {
+          // Reseau coupe
+          throw new Error("RESEAU");
+        }
+
+        if (r.ok) return r;
+
+        // Jeton expire ou invalide : on le renouvelle et on retente
+        if ((r.status === 401 || r.status === 403) && !deuxiemeEssai) {
+          const neuf = await renouvelerJeton();
+          if (neuf) {
+            try {
+              sessionUtilisateur = await recupererUtilisateur(neuf);
+            } catch (e) {}
+            const opts = JSON.parse(JSON.stringify(options));
+            opts.headers = headersAuth();
+            return requeteFiable(url, opts, true);
+          }
+        }
+
+        const texte = await r.text().catch(() => "");
+        throw new Error("HTTP " + r.status + " " + texte.slice(0, 120));
+      }
+
+      // Scores qui n'ont pas pu partir : on les garde pour plus tard
+      function filAttenteScores() {
+        try {
+          return JSON.parse(localStorage.getItem("porgerScoresEnAttente") || "[]");
+        } catch (e) {
+          return [];
+        }
+      }
+
+      function memoriserScoreEnAttente(corps) {
+        try {
+          const file = filAttenteScores();
+          file.push({ corps: corps, date: Date.now() });
+          // On n'en garde que 5, pour ne pas saturer le stockage
+          localStorage.setItem(
+            "porgerScoresEnAttente",
+            JSON.stringify(file.slice(-5))
+          );
+        } catch (e) {}
+      }
+
+      // Au chargement, on retente les envois qui avaient echoue
+      async function reenvoyerScoresEnAttente() {
+        const file = filAttenteScores();
+        if (!file.length) return;
+
+        const restants = [];
+        for (const entree of file) {
+          try {
+            // On rafraichit l'identifiant si la session a change
+            if (sessionUtilisateur) {
+              entree.corps.joueur_id = sessionUtilisateur.id;
+            }
+            await requeteFiable(SUPABASE_URL + "/rest/v1/scores", {
+              method: "POST",
+              headers: headersAuth(),
+              body: JSON.stringify(entree.corps),
+            });
+          } catch (e) {
+            restants.push(entree);
+          }
+        }
+        try {
+          localStorage.setItem(
+            "porgerScoresEnAttente",
+            JSON.stringify(restants)
+          );
+        } catch (e) {}
+
+        const envoyes = file.length - restants.length;
+        if (envoyes > 0) {
+          showHubMessage(
+            "\u2705 " + envoyes + " score(s) en attente envoyé(s)"
+          );
+          chargerPodium().catch(() => {});
+        }
+      }
+
       async function envoyerScore(resultat) {
         if (!permanentData.pseudo) return; // pas de pseudo, pas d'envoi
         // On envoie aussi les parties suspectes : elles sont exclues du
@@ -10275,28 +10368,57 @@
         // pour pouvoir verifier au lieu de perdre l'information.
         if (resultat.vague < 1) return;
 
+        const corps = {
+          joueur_id: sessionUtilisateur ? sessionUtilisateur.id : null,
+          pseudo: permanentData.pseudo,
+          vague: resultat.vague,
+          niveau: resultat.niveau,
+          kills: resultat.kills,
+          temps: resultat.temps,
+          argent_total: resultat.argentTotal,
+          zombies_apparus: resultat.zombiesApparus,
+          valide: resultat.valide,
+          anomalies: resultat.anomalies,
+          journal: resultat.journal,
+          version: resultat.version,
+        };
+
         try {
-          await fetch(SUPABASE_URL + "/rest/v1/scores", {
+          await requeteFiable(SUPABASE_URL + "/rest/v1/scores", {
             method: "POST",
             headers: headersAuth(),
-            body: JSON.stringify({
-              joueur_id: sessionUtilisateur ? sessionUtilisateur.id : null,
-              pseudo: permanentData.pseudo,
-              vague: resultat.vague,
-              niveau: resultat.niveau,
-              kills: resultat.kills,
-              temps: resultat.temps,
-              argent_total: resultat.argentTotal,
-              zombies_apparus: resultat.zombiesApparus,
-              valide: resultat.valide,
-              anomalies: resultat.anomalies,
-              journal: resultat.journal,
-              version: resultat.version,
-            }),
+            body: JSON.stringify(corps),
           });
+          scoreEnvoye = true;
         } catch (e) {
-          console.error("Envoi du score :", e);
+          console.error("Envoi du score :", e.message);
+          scoreEnvoye = false;
+          // On garde le score pour le renvoyer au prochain lancement
+          memoriserScoreEnAttente(corps);
+          avertirScoreNonEnvoye(e.message);
         }
+      }
+
+      let scoreEnvoye = true;
+
+      // Le joueur doit savoir que son score n'est pas parti
+      function avertirScoreNonEnvoye(raison) {
+        const b = document.createElement("div");
+        b.style.cssText =
+          "position:fixed;bottom:20px;left:20px;z-index:99999;" +
+          "background:#c0392b;color:#fff;padding:12px 16px;border-radius:10px;" +
+          "font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,.5);max-width:290px;" +
+          "animation:glisserGauche .3s ease-out";
+        b.innerHTML =
+          "\u26a0\ufe0f <b>Score non envoyé</b><br>" +
+          "<span style='font-size:12px;opacity:.9'>Il sera renvoyé " +
+          "automatiquement au prochain lancement du jeu.</span>";
+        document.body.appendChild(b);
+        setTimeout(() => {
+          b.style.transition = "opacity .4s";
+          b.style.opacity = "0";
+          setTimeout(() => b.remove(), 420);
+        }, 7000);
       }
 
       // Cree les braises animees du fond du hub
