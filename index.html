@@ -9443,7 +9443,7 @@
       // ====== RAFRAICHISSEMENT AUTOMATIQUE ======
       // Tant que le classement est ouvert, on le recharge regulierement
       // pour voir arriver les scores des autres sans recharger la page.
-      const VERSION_JEU = "1.0";
+      const VERSION_JEU = "1.01";
       let minuteurClassement = null;
       let replayOuvert = false;
       const DELAI_RAFRAICHISSEMENT = 15000;
@@ -9963,6 +9963,23 @@
           const scores = await r.json();
           scoresModeration = scores;
 
+          // Dates d'inscription, reservees au fondateur
+          let inscriptions = {};
+          try {
+            const rp = await fetch(SUPABASE_URL + "/rest/v1/rpc/lire_inscriptions", {
+              method: "POST",
+              headers: headersAuth(),
+              body: "{}",
+            });
+            if (rp.ok) {
+              (await rp.json()).forEach((j) => {
+                inscriptions[(j.pseudo || "").toLowerCase()] = j.cree_le;
+              });
+            }
+          } catch (e) {
+            console.warn("inscriptions :", e);
+          }
+
           let html =
             "<p style='color:#888;font-size:13px;margin-bottom:14px'>" +
             scores.length + " partie(s) enregistrée(s)</p>";
@@ -9989,7 +10006,16 @@
               "align-items:center;gap:8px;margin-bottom:7px'>" +
               "<span style='font-weight:bold;color:#fff'>" + echapper(nom) +
               " <span style='color:#777;font-weight:normal;font-size:12px'>(" +
-              liste.length + " partie(s))</span></span>" +
+              liste.length + " partie(s))</span>" +
+              (inscriptions[cle]
+                ? "<br><span style='color:#666;font-weight:normal;font-size:11px'>" +
+                  "Inscrit le " +
+                  new Date(inscriptions[cle]).toLocaleString("fr-FR", {
+                    day: "2-digit", month: "2-digit", year: "numeric",
+                    hour: "2-digit", minute: "2-digit",
+                  }) + "</span>"
+                : "") +
+              "</span>" +
               "<button onclick='supprimerJoueurParId(" + liste[0].id + ")' " +
               "style='padding:5px 11px;background:#c0392b;border:none;" +
               "border-radius:6px;color:#fff;font-size:12px;cursor:pointer'>" +
