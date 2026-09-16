@@ -1728,6 +1728,57 @@
         to { transform: translateX(0); opacity: 1; }
       }
 
+      /* Soigneur : halo vert, se repere dans la horde */
+      .enemy.healer-zombie {
+        width: 34px;
+        height: 34px;
+        margin-left: -17px;
+        margin-top: -17px;
+        background-image: url("sprites/run.png");
+        background-size: 272px 136px;
+        filter: hue-rotate(-25deg) brightness(1.3) saturate(1.5);
+        box-shadow: 0 0 14px rgba(46, 204, 113, 0.85);
+        border-radius: 50%;
+      }
+      .enemy.healer-zombie.dir-bas { background-position-y: 0; }
+      .enemy.healer-zombie.dir-droite { background-position-y: -34px; }
+      .enemy.healer-zombie.dir-haut { background-position-y: -68px; }
+      .enemy.healer-zombie.dir-gauche { background-position-y: -102px; }
+
+      /* Tireur : teinte violette */
+      .enemy.shooter-zombie {
+        width: 36px;
+        height: 36px;
+        margin-left: -18px;
+        margin-top: -18px;
+        background-image: url("sprites/run.png");
+        background-size: 288px 144px;
+        filter: hue-rotate(230deg) brightness(1.15) saturate(1.4);
+        box-shadow: 0 0 12px rgba(155, 89, 182, 0.8);
+      }
+      .enemy.shooter-zombie.dir-bas { background-position-y: 0; }
+      .enemy.shooter-zombie.dir-droite { background-position-y: -36px; }
+      .enemy.shooter-zombie.dir-haut { background-position-y: -72px; }
+      .enemy.shooter-zombie.dir-gauche { background-position-y: -108px; }
+
+      .projectile-zombie {
+        position: absolute;
+        width: 11px;
+        height: 11px;
+        margin-left: -5px;
+        margin-top: -5px;
+        border-radius: 50%;
+        background: radial-gradient(circle, #d98cf5, #8e44ad);
+        box-shadow: 0 0 9px rgba(155, 89, 182, 0.95);
+        z-index: 11;
+        pointer-events: none;
+      }
+
+      @keyframes monteeSoin {
+        0% { transform: translateY(0); opacity: 1; }
+        100% { transform: translateY(-22px); opacity: 0; }
+      }
+
       /* Canon secondaire monte au-dessus de la tourelle */
       .canon-secondaire {
         position: absolute;
@@ -6868,7 +6919,7 @@
           effect: () => {
             // Plafond a 620 : sans limite, plus aucun zombie n'arrivait
             // jusqu'au joueur et la partie perdait tout enjeu
-            attackRange = Math.min(620, attackRange * 1.2);
+            attackRange = Math.min(600, attackRange * 1.2);
             updateRangeCircle();
             addZombieBuff(0, 0);
           },
@@ -7135,6 +7186,29 @@
           damage: 20,
           money: 40,
           class: "tank-zombie",
+        },
+        // Soigne les zombies autour de lui. Fragile, mais doit
+        // s'approcher pour agir : il entre donc a portee de tir.
+        healerZombie: {
+          health: 45,
+          speed: 0.9,
+          damage: 4,
+          money: 55,
+          class: "healer-zombie",
+          soigne: true,
+          porteeSoin: 130,
+          soinParSeconde: 14,
+        },
+        // Tire de loin au lieu de foncer. S'arrete a distance.
+        shooterZombie: {
+          health: 55,
+          speed: 1.1,
+          damage: 12,
+          money: 50,
+          class: "shooter-zombie",
+          tire: true,
+          porteeTir: 240,
+          cadenceTir: 1800,
         },
       };
 
@@ -9604,7 +9678,7 @@
       // ====== RAFRAICHISSEMENT AUTOMATIQUE ======
       // Tant que le classement est ouvert, on le recharge regulierement
       // pour voir arriver les scores des autres sans recharger la page.
-      const VERSION_JEU = "1.07";
+      const VERSION_JEU = "1.08";
       let minuteurClassement = null;
       let replayOuvert = false;
       const DELAI_RAFRAICHISSEMENT = 15000;
@@ -13125,6 +13199,8 @@
         enemiesSpawnedTotal = 0;
         picArgent = 0;
         finEnCours = false;
+        projectilesZombies.forEach((p) => p.element.remove());
+        projectilesZombies = [];
         clearTimeout(waveNextTimerId);
         waveNextTimerId = null;
         clearTimeout(spawnTimerId);
@@ -13424,17 +13500,28 @@
 
         let closestEnemy = null;
         let closestDistance = Infinity;
+        let soigneurProche = null;
+        let distSoigneur = Infinity;
 
         enemies.forEach((enemy) => {
           const dx = enemy.x - playerX;
           const dy = enemy.y - playerY;
           const distance = Math.sqrt(dx * dx + dy * dy);
+          if (distance > attackRange) return;
 
-          if (distance < closestDistance && distance <= attackRange) {
+          // Les soigneurs annulent les degats des autres : on les vise
+          // en priorite, sinon ils seraient intouchables derriere la horde
+          if (enemy.soigne && distance < distSoigneur) {
+            distSoigneur = distance;
+            soigneurProche = enemy;
+          }
+          if (distance < closestDistance) {
             closestDistance = distance;
             closestEnemy = enemy;
           }
         });
+
+        if (soigneurProche) closestEnemy = soigneurProche;
 
         if (closestEnemy) {
           lastAttackTime = currentTime;
@@ -13673,6 +13760,79 @@
         });
       }
 
+
+      // Petit eclat vert quand un soigneur agit
+      function marquerSoin(enemy) {
+        if (!enemy.element) return;
+        const e = document.createElement("div");
+        e.style.cssText =
+          "position:absolute;left:" + enemy.x + "px;top:" + (enemy.y - 18) +
+          "px;color:#2ecc71;font-size:13px;font-weight:bold;z-index:12;" +
+          "pointer-events:none;text-shadow:0 0 6px #2ecc71;" +
+          "animation:monteeSoin .8s ease-out forwards";
+        e.textContent = "+";
+        gameArea.appendChild(e);
+        setTimeout(() => e.remove(), 820);
+      }
+
+      // Projectile lance par un zombie tireur
+      function tirerProjectileZombie(enemy) {
+        const angle = Math.atan2(playerY - enemy.y, playerX - enemy.x);
+        const p = document.createElement("div");
+        p.className = "projectile-zombie";
+        p.style.left = enemy.x + "px";
+        p.style.top = enemy.y + "px";
+        gameArea.appendChild(p);
+
+        const projectile = {
+          element: p,
+          x: enemy.x,
+          y: enemy.y,
+          vx: Math.cos(angle) * 4,
+          vy: Math.sin(angle) * 4,
+          degats: enemy.damage,
+          ne: Date.now(),
+        };
+        projectilesZombies.push(projectile);
+      }
+
+      let projectilesZombies = [];
+
+      // Deplacement et impact des projectiles ennemis
+      function majProjectilesZombies() {
+        projectilesZombies = projectilesZombies.filter((p) => {
+          p.x += p.vx * gameSpeed;
+          p.y += p.vy * gameSpeed;
+          p.element.style.left = p.x + "px";
+          p.element.style.top = p.y + "px";
+
+          // Sortie d'ecran ou trop vieux
+          if (
+            p.x < -30 || p.x > canvasWidth + 30 ||
+            p.y < -30 || p.y > canvasHeight + 30 ||
+            Date.now() - p.ne > 6000
+          ) {
+            p.element.remove();
+            return false;
+          }
+
+          // Impact sur le joueur
+          const dx = p.x - playerX;
+          const dy = p.y - playerY;
+          if (Math.sqrt(dx * dx + dy * dy) < 26) {
+            p.element.remove();
+            if (!invincibiliteDev) {
+              const degats = Math.max(1, p.degats * (1 - damageReduction));
+              playerHealth -= degats;
+              updateHealth();
+              if (playerHealth <= 0) endGame();
+            }
+            return false;
+          }
+          return true;
+        });
+      }
+
       function spawnEnemy() {
         enemiesSpawnedTotal++;
         if (!gameActive || gamePaused) return;
@@ -13706,7 +13866,16 @@
         const tankChance = Math.min(0.25, 0.05 + playerLevel * 0.01);
         const fastChance = Math.min(0.4, 0.1 + playerLevel * 0.015);
 
-        if (playerLevel >= 5 && rand < tankChance) {
+        // Soigneurs et tireurs arrivent plus tard, et restent rares :
+        // ils changent la facon de jouer, pas la difficulte brute
+        const soigneurChance = Math.min(0.12, 0.03 + playerLevel * 0.006);
+        const tireurChance = Math.min(0.16, 0.04 + playerLevel * 0.008);
+
+        if (playerLevel >= 8 && rand < soigneurChance) {
+          type = ENEMY_TYPES.healerZombie;
+        } else if (playerLevel >= 6 && rand < soigneurChance + tireurChance) {
+          type = ENEMY_TYPES.shooterZombie;
+        } else if (playerLevel >= 5 && rand < tankChance) {
           type = ENEMY_TYPES.tankZombie;
         } else if (playerLevel >= 3 && rand < fastChance) {
           type = ENEMY_TYPES.fastZombie;
@@ -13978,12 +14147,57 @@
             return true;
           });
 
+          majProjectilesZombies();
+
           // Ennemis se déplacent vers le joueur
           const currentTime = Date.now();
           enemies.forEach((enemy) => {
             const dx = playerX - enemy.x;
             const dy = playerY - enemy.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
+
+            // --- Soigneur : remet des PV aux zombies autour de lui ---
+            if (enemy.soigne) {
+              if (currentTime - (enemy.dernierSoin || 0) > 1000 / gameSpeed) {
+                enemy.dernierSoin = currentTime;
+                let soignes = 0;
+                enemies.forEach((autre) => {
+                  if (autre === enemy || autre.health >= autre.maxHealth) return;
+                  const ax = autre.x - enemy.x;
+                  const ay = autre.y - enemy.y;
+                  if (Math.sqrt(ax * ax + ay * ay) <= enemy.porteeSoin) {
+                    autre.health = Math.min(
+                      autre.maxHealth,
+                      autre.health + enemy.soinParSeconde
+                    );
+                    if (autre.healthBar) {
+                      autre.healthBar.style.width =
+                        (autre.health / autre.maxHealth) * 100 + "%";
+                    }
+                    soignes++;
+                  }
+                });
+                if (soignes > 0) marquerSoin(enemy);
+              }
+            }
+
+            // --- Tireur : s'arrete a distance et tire ---
+            if (enemy.tire) {
+              if (distance <= enemy.porteeTir) {
+                if (currentTime - (enemy.dernierTir || 0) > enemy.cadenceTir / gameSpeed) {
+                  enemy.dernierTir = currentTime;
+                  tirerProjectileZombie(enemy);
+                }
+                // Il reste a distance au lieu de foncer
+                if (distance > enemy.porteeTir * 0.7) {
+                  enemy.x += (dx / distance) * enemy.speed * gameSpeed * speedMult * 0.4;
+                  enemy.y += (dy / distance) * enemy.speed * gameSpeed * speedMult * 0.4;
+                }
+                enemy.element.style.left = enemy.x + "px";
+                enemy.element.style.top = enemy.y + "px";
+                return;
+              }
+            }
 
             if (distance > 0) {
               enemy.x += (dx / distance) * enemy.speed * gameSpeed * speedMult;
