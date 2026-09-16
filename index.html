@@ -9952,6 +9952,106 @@
         }
       }
 
+
+      // ====== INDICE DE SUSPICION ======
+      // Plutot qu'un verdict binaire, on calcule une probabilite a partir
+      // de plusieurs indicateurs. Chacun compare la partie a ce qu'un
+      // joueur humain peut raisonnablement produire.
+      function indiceSuspicion(sc) {
+        const points = [];
+        const temps = Math.max(1, sc.temps || 1);
+        const vague = Math.max(1, sc.vague || 1);
+        const kills = sc.kills || 0;
+        const argent = sc.argent_total || 0;
+        const apparus = sc.zombies_apparus || 0;
+
+        // 1. Plus de kills que de zombies apparus : impossible
+        if (apparus > 0 && kills > apparus) {
+          points.push({ poids: 100, texte: "Plus de kills que de zombies apparus" });
+        }
+
+        // 2. Rythme de vagues : environ 20 a 40 secondes par vague
+        const secondesParVague = temps / vague;
+        if (secondesParVague < 3) {
+          points.push({
+            poids: 85,
+            texte: "Vagues bouclées en " + secondesParVague.toFixed(1) + "s",
+          });
+        } else if (secondesParVague < 8) {
+          points.push({
+            poids: 35,
+            texte: "Progression rapide (" + secondesParVague.toFixed(1) + "s par vague)",
+          });
+        }
+
+        // 3. Cadence de kills : au-dela de 30 par seconde, c'est douteux
+        const killsParSeconde = kills / temps;
+        if (killsParSeconde > 30) {
+          points.push({
+            poids: 70,
+            texte: killsParSeconde.toFixed(1) + " kills par seconde",
+          });
+        } else if (killsParSeconde > 15) {
+          points.push({
+            poids: 25,
+            texte: "Cadence élevée (" + killsParSeconde.toFixed(1) + " kills/s)",
+          });
+        }
+
+        // 4. Argent par kill : un rapport demesure trahit une injection
+        const argentParKill = kills > 0 ? argent / kills : argent;
+        const attendu = 200 + vague * 60;
+        if (argentParKill > attendu * 20) {
+          points.push({
+            poids: 60,
+            texte: "Argent par kill très élevé (" +
+              Math.round(argentParKill).toLocaleString("fr-FR") + "$)",
+          });
+        }
+
+        // 5. Partie trop courte pour la vague atteinte
+        if (vague > 30 && temps < vague * 4) {
+          points.push({
+            poids: 50,
+            texte: "Vague " + vague + " atteinte en seulement " + temps + "s",
+          });
+        }
+
+        // 6. Anomalies relevees pendant la partie
+        const anomalies = sc.anomalies || [];
+        const graves = anomalies.filter(
+          (a) => a.indexOf("saut de vague") === 0 || a.indexOf("kills") === 0
+        ).length;
+        if (graves > 0) {
+          points.push({ poids: 95, texte: graves + " anomalie(s) grave(s)" });
+        }
+
+        // L'indice retenu est le plus fort, legerement releve si
+        // plusieurs signaux concordent
+        let indice = 0;
+        points.forEach((p) => {
+          indice = Math.max(indice, p.poids);
+        });
+        if (points.length > 1) {
+          indice = Math.min(100, indice + (points.length - 1) * 5);
+        }
+
+        return {
+          indice: Math.round(indice),
+          raisons: points.map((p) => p.texte),
+          verdict:
+            indice >= 70 ? "Très suspect"
+            : indice >= 40 ? "À vérifier"
+            : indice >= 15 ? "Léger doute"
+            : "Rien à signaler",
+          couleur:
+            indice >= 70 ? "#c0392b"
+            : indice >= 40 ? "#e67e22"
+            : indice >= 15 ? "#f1c40f"
+            : "#27ae60",
+        };
+      }
+
       // ====== MODERATION (compte developpeur uniquement) ======
       async function ouvrirModeration() {
         if (!estDeveloppeur()) return;
@@ -10030,6 +10130,7 @@
               "Tout supprimer</button></div>";
 
             liste.forEach((sc) => {
+              const susp = indiceSuspicion(sc);
               html +=
                 "<div style='display:flex;align-items:center;gap:8px;" +
                 "padding:4px 0;font-size:12px;color:#aaa;border-top:1px solid " +
@@ -10038,7 +10139,16 @@
                 sc.temps + "s \u00b7 " +
                 new Date(sc.cree_le).toLocaleDateString("fr-FR") +
                 (sc.valide ? "" : " <span style='color:#e74c3c'>[invalide]</span>") +
+                (susp.raisons.length
+                  ? "<br><span style='font-size:10px;color:#666'>" +
+                    echapper(susp.raisons.slice(0, 2).join(" \u00b7 ")) + "</span>"
+                  : "") +
                 "</span>" +
+                "<span title='" + echapper(susp.raisons.join(" | ") || "Aucun signal") +
+                "' style='background:" + susp.couleur + "22;border:1px solid " +
+                susp.couleur + ";color:" + susp.couleur + ";border-radius:10px;" +
+                "padding:2px 8px;font-size:11px;font-weight:bold;white-space:nowrap'>" +
+                susp.indice + "%</span>" +
                 "<button onclick='supprimerScore(" + sc.id + ")' " +
                 "style='padding:3px 9px;background:none;border:1px solid #c0392b;" +
                 "border-radius:5px;color:#c0392b;font-size:11px;cursor:pointer'>" +
