@@ -9443,7 +9443,7 @@
       // ====== RAFRAICHISSEMENT AUTOMATIQUE ======
       // Tant que le classement est ouvert, on le recharge regulierement
       // pour voir arriver les scores des autres sans recharger la page.
-      const VERSION_JEU = "1.01";
+      const VERSION_JEU = "1.02";
       let minuteurClassement = null;
       let replayOuvert = false;
       const DELAI_RAFRAICHISSEMENT = 15000;
@@ -9617,6 +9617,14 @@
                 "outline-offset:-2px;background:rgba(192,57,43," +
                 (enCours ? ".35" : ".12") + ");"
               : "border-top:1px solid #333;" + fond + moi;
+
+            // Pastille discrete si la partie merite un coup d'oeil
+            const risque = analyserPartie(sc).probabilite;
+            const alerte =
+              risque >= 40 && estFondateur()
+                ? " <span style='font-size:10px;color:" +
+                  couleurSuspicion(risque) + "'>\u25cf " + risque + "%</span>"
+                : "";
 
             html +=
               "<tr onclick='" + action + "' " +
@@ -10197,6 +10205,158 @@
         chargerPodium().catch(() => {});
       }
 
+
+      // ====== ANALYSE STATISTIQUE D'UNE PARTIE ======
+      // Plutot qu'un verdict binaire, on calcule une probabilite de
+      // triche a partir de plusieurs indicateurs independants.
+      // Chacun renvoie un score de 0 (normal) a 1 (tres suspect).
+      function analyserPartie(sc) {
+        const j = sc.journal || [];
+        const indices = [];
+
+        // --- 1. Regularite des vagues ---
+        // Un humain a des temps de vague irreguliers. Un script
+        // automatise produit des durees quasi identiques.
+        if (j.length >= 6) {
+          const durees = [];
+          for (let i = 1; i < j.length; i++) {
+            const d = (j[i].t || 0) - (j[i - 1].t || 0);
+            if (d > 0) durees.push(d);
+          }
+          if (durees.length >= 5) {
+            const moy = durees.reduce((a, b) => a + b, 0) / durees.length;
+            const variance =
+              durees.reduce((a, b) => a + (b - moy) * (b - moy), 0) / durees.length;
+            const ecart = Math.sqrt(variance);
+            // Coefficient de variation : ecart-type rapporte a la moyenne
+            const cv = moy > 0 ? ecart / moy : 1;
+            // En dessous de 0,12 la regularite devient anormale
+            indices.push({
+              nom: "Régularité des vagues",
+              valeur: Math.max(0, Math.min(1, (0.12 - cv) / 0.12)),
+              detail: "variation de " + Math.round(cv * 100) + "%",
+            });
+          }
+        }
+
+        // --- 2. Kills par rapport aux zombies apparus ---
+        const apparus = sc.zombies_apparus || 0;
+        const kills = sc.kills || 0;
+        if (apparus > 0) {
+          const ratio = kills / apparus;
+          // Au-dela de 1, on tue plus de zombies qu'il n'en existe
+          indices.push({
+            nom: "Zombies tués vs apparus",
+            valeur: ratio > 1 ? Math.min(1, (ratio - 1) * 5) : 0,
+            detail: Math.round(ratio * 100) + "% des zombies tués",
+          });
+        }
+
+        // --- 3. Vitesse de progression ---
+        const minutes = (sc.temps || 1) / 60;
+        const vaguesParMin = (sc.vague || 1) / Math.max(1, minutes);
+        // Au-dela de 6 vagues par minute sur la duree, c'est douteux
+        indices.push({
+          nom: "Vitesse de progression",
+          valeur: Math.max(0, Math.min(1, (vaguesParMin - 6) / 6)),
+          detail: vaguesParMin.toFixed(1) + " vagues/min",
+        });
+
+        // --- 4. Argent par zombie tue ---
+        if (kills > 0) {
+          const parKill = (sc.argent_total || 0) / kills;
+          // Un zombie rapporte quelques milliers en fin de partie ;
+          // au-dela de 50 000 en moyenne, c'est incoherent
+          indices.push({
+            nom: "Argent par zombie",
+            valeur: Math.max(0, Math.min(1, (parKill - 50000) / 100000)),
+            detail: Math.round(parKill).toLocaleString("fr-FR") + " $/zombie",
+          });
+        }
+
+        // --- 5. Sauts de vague releves pendant la partie ---
+        const sauts = (sc.anomalies || []).filter((a) =>
+          String(a).includes("saut de vague")
+        ).length;
+        if (sauts > 0) {
+          indices.push({
+            nom: "Sauts de vague",
+            valeur: Math.min(1, sauts / 2),
+            detail: sauts + " saut(s) détecté(s)",
+          });
+        }
+
+        // --- 6. Niveau par rapport a la vague ---
+        // Le niveau suit normalement la progression des vagues
+        if (sc.vague > 5) {
+          const rapport = (sc.niveau || 1) / sc.vague;
+          indices.push({
+            nom: "Niveau vs vague",
+            valeur: Math.max(0, Math.min(1, (rapport - 30) / 30)),
+            detail: rapport.toFixed(1) + " niveaux par vague",
+          });
+        }
+
+        if (!indices.length) {
+          return { probabilite: 0, indices: [], verdict: "Données insuffisantes" };
+        }
+
+        // On prend le maximum plutot que la moyenne : un seul indicateur
+        // vraiment aberrant suffit a rendre une partie suspecte, alors
+        // qu'une moyenne le diluerait.
+        const max = Math.max(...indices.map((i) => i.valeur));
+        const moyenne =
+          indices.reduce((a, i) => a + i.valeur, 0) / indices.length;
+        const probabilite = Math.round((max * 0.7 + moyenne * 0.3) * 100);
+
+        let verdict;
+        if (probabilite < 15) verdict = "Partie normale";
+        else if (probabilite < 40) verdict = "Rien d'alarmant";
+        else if (probabilite < 70) verdict = "À vérifier";
+        else verdict = "Très suspect";
+
+        return { probabilite: probabilite, indices: indices, verdict: verdict };
+      }
+
+      function couleurSuspicion(p) {
+        if (p < 15) return "#2ecc71";
+        if (p < 40) return "#f1c40f";
+        if (p < 70) return "#e67e22";
+        return "#e74c3c";
+      }
+
+      // Encadre detaille, affiche dans le replay
+      function blocAnalyse(sc) {
+        const a = analyserPartie(sc);
+        const c = couleurSuspicion(a.probabilite);
+
+        let html =
+          "<div style='background:rgba(255,255,255,.04);border-left:3px solid " +
+          c + ";border-radius:9px;padding:12px;margin-bottom:14px'>" +
+          "<div style='display:flex;align-items:center;gap:10px;margin-bottom:9px'>" +
+          "<span style='font-size:22px;font-weight:bold;color:" + c + "'>" +
+          a.probabilite + "%</span>" +
+          "<div><div style='color:" + c + ";font-weight:bold;font-size:13px'>" +
+          a.verdict + "</div>" +
+          "<div style='color:#777;font-size:11px'>probabilité de triche</div>" +
+          "</div></div>";
+
+        a.indices.forEach((i) => {
+          const ci = couleurSuspicion(i.valeur * 100);
+          html +=
+            "<div style='display:flex;align-items:center;gap:8px;" +
+            "margin-bottom:5px;font-size:12px'>" +
+            "<span style='flex:1;color:#aaa'>" + i.nom + "</span>" +
+            "<span style='color:#666;font-size:11px'>" + i.detail + "</span>" +
+            "<div style='width:56px;height:6px;background:rgba(255,255,255,.1);" +
+            "border-radius:3px;overflow:hidden'>" +
+            "<div style='width:" + Math.round(i.valeur * 100) + "%;height:100%;" +
+            "background:" + ci + "'></div></div></div>";
+        });
+
+        return html + "</div>";
+      }
+
       // ====== REPLAY : detail d'une partie vague par vague ======
       async function ouvrirReplay(idScore) {
         const zone = document.getElementById("leaderboardList");
@@ -10238,6 +10398,9 @@
           (sc.argent_total || 0).toLocaleString("fr-FR") + " $ gagnés \u00b7 " +
           (sc.zombies_apparus || 0) + " zombies apparus<br>" +
           "<span style='color:#666'>" + date + "</span></div></div>";
+
+        // Analyse statistique : probabilite de triche
+        html += blocAnalyse(sc);
 
         if (!j.length) {
           html +=
