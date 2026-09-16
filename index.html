@@ -3244,8 +3244,12 @@
           border-top: none;
           border-left: 3px solid rgba(0, 184, 148, 0.3);
           min-height: 0;
-          max-height: 100%;
+          /* Hauteur bornee a l'ecran, et marge en bas pour que la
+             derniere rangee de parchemins soit entierement visible */
+          max-height: calc(100vh - 82px);
           overflow-y: auto;
+          padding-bottom: 60px;
+          box-sizing: border-box;
         }
 
         .equip-inv-grid {
@@ -4043,7 +4047,7 @@
       .equip-inventory-section {
         background: linear-gradient(180deg, #1a1a3a 0%, #0d0d1f 100%);
         border-top: 3px solid rgba(0, 184, 148, 0.3);
-        padding: 15px;
+        padding: 15px 15px 50px;
         flex: 1;
         overflow-y: auto;
         min-height: 200px;
@@ -9600,7 +9604,7 @@
       // ====== RAFRAICHISSEMENT AUTOMATIQUE ======
       // Tant que le classement est ouvert, on le recharge regulierement
       // pour voir arriver les scores des autres sans recharger la page.
-      const VERSION_JEU = "1.06";
+      const VERSION_JEU = "1.07";
       let minuteurClassement = null;
       let replayOuvert = false;
       const DELAI_RAFRAICHISSEMENT = 15000;
