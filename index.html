@@ -9406,7 +9406,7 @@
       // ====== RAFRAICHISSEMENT AUTOMATIQUE ======
       // Tant que le classement est ouvert, on le recharge regulierement
       // pour voir arriver les scores des autres sans recharger la page.
-      const VERSION_JEU = "0.96";
+      const VERSION_JEU = "0.97";
       let minuteurClassement = null;
       let replayOuvert = false;
       const DELAI_RAFRAICHISSEMENT = 15000;
@@ -9735,6 +9735,7 @@
       }
 
       function afficherMessages(messages) {
+        capturesMessages = {};
         const zone = document.getElementById("listeMessages");
         const nonLus = messages.filter((m) => !m.traite).length;
         messagesNonLus = nonLus;
@@ -9775,10 +9776,15 @@
             echapper(m.texte) + "</div>";
 
           if (m.capture) {
+            capturesMessages[m.id] = m.capture;
             html +=
-              "<img src='" + m.capture + "' onclick='agrandirCapture(this.src)' " +
-              "style='max-width:100%;margin-top:9px;border-radius:7px;" +
-              "border:1px solid #444;cursor:zoom-in'>";
+              "<button onclick='agrandirCapture(" + m.id + ")' " +
+              "style='display:inline-flex;align-items:center;gap:8px;" +
+              "margin-top:9px;padding:7px 13px;background:rgba(52,152,219,.12);" +
+              "border:1px solid #3498db;border-radius:8px;color:#3498db;" +
+              "font-size:12px;cursor:pointer'>" +
+              "<span style='font-size:15px'>\ud83d\uddbc\ufe0f</span>" +
+              "Voir la capture</button>";
           }
 
           html +=
@@ -9797,17 +9803,81 @@
         zone.innerHTML = html;
       }
 
-      function agrandirCapture(src) {
+      // Les captures sont gardees en memoire, pas dans le HTML :
+      // une image en base64 dans un attribut rend la page illisible
+      let capturesMessages = {};
+
+      function agrandirCapture(id) {
+        const src = capturesMessages[id];
+        if (!src) return;
+
         const v = document.createElement("div");
+        v.id = "visionneuseCapture";
         v.style.cssText =
-          "position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:99999;" +
-          "display:flex;align-items:center;justify-content:center;padding:20px;" +
-          "cursor:zoom-out";
-        v.onclick = () => v.remove();
-        v.innerHTML =
-          "<img src='" + src + "' style='max-width:100%;max-height:100%;" +
-          "border-radius:9px'>";
+          "position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:99999;" +
+          "display:flex;flex-direction:column;align-items:center;" +
+          "justify-content:center;padding:0";
+
+        const img = document.createElement("img");
+        img.src = src;
+        // L'image occupe tout l'espace disponible
+        img.style.cssText =
+          "max-width:100vw;max-height:calc(100vh - 56px);" +
+          "object-fit:contain;cursor:zoom-in;transition:transform .2s";
+
+        // Un clic sur l'image bascule en taille reelle, avec defilement
+        let zoome = false;
+        img.onclick = (e) => {
+          e.stopPropagation();
+          zoome = !zoome;
+          if (zoome) {
+            img.style.maxWidth = "none";
+            img.style.maxHeight = "none";
+            img.style.cursor = "zoom-out";
+            v.style.overflow = "auto";
+            v.style.alignItems = "flex-start";
+          } else {
+            img.style.maxWidth = "100vw";
+            img.style.maxHeight = "calc(100vh - 56px)";
+            img.style.cursor = "zoom-in";
+            v.style.overflow = "hidden";
+            v.style.alignItems = "center";
+          }
+        };
+
+        const barre = document.createElement("div");
+        barre.style.cssText =
+          "position:fixed;top:0;left:0;right:0;height:52px;display:flex;" +
+          "align-items:center;justify-content:space-between;padding:0 16px;" +
+          "background:rgba(0,0,0,.6);z-index:2";
+        barre.innerHTML =
+          "<span style='color:#888;font-size:12px'>" +
+          "Clique l'image pour la taille réelle</span>";
+
+        const fermer = document.createElement("button");
+        fermer.textContent = "✕ Fermer";
+        fermer.style.cssText =
+          "padding:7px 14px;background:rgba(255,255,255,.12);border:none;" +
+          "border-radius:7px;color:#fff;cursor:pointer;font-size:13px";
+        fermer.onclick = () => v.remove();
+        barre.appendChild(fermer);
+
+        v.onclick = (e) => {
+          if (e.target === v) v.remove();
+        };
+
+        v.appendChild(barre);
+        v.appendChild(img);
         document.body.appendChild(v);
+
+        // Echap ferme aussi
+        const esc = (e) => {
+          if (e.key === "Escape") {
+            v.remove();
+            document.removeEventListener("keydown", esc);
+          }
+        };
+        document.addEventListener("keydown", esc);
       }
 
       async function marquerMessage(id, traite) {
