@@ -5624,19 +5624,24 @@
           if (dWave > 1) {
             flagRun("saut de vague : " + precedent.wave + " -> " + vague);
           }
-          // Argent : le plafond monte avec la vague et le nombre de kills
+          // Argent et degats croissent de facon exponentielle en fin de
+          // partie. Les depassements sont notes pour information, mais
+          // n'invalident plus le score : ils produisaient des faux
+          // positifs sur les tres bonnes parties.
           const dArgent = snapshot.argentTotal - precedent.argentTotal;
           const dKills = snapshot.kills - precedent.kills;
-          const plafondArgent = 5000 + vague * 2000 + dKills * 3000;
+          const plafondArgent =
+            50000 + vague * vague * 200 + dKills * 20000;
           if (dArgent > plafondArgent) {
-            flagRun(
-              "gain d'argent anormal : +" + dArgent + " pour " + dKills +
+            noterRemarque(
+              "gain d'argent élevé : +" + dArgent + " pour " + dKills +
               " kills en vague " + vague
             );
           }
-          // Degats : on tolere un gros bond (achats groupes, Rage, boss)
-          if (snapshot.degats > precedent.degats * 12 + 200 && precedent.degats > 0) {
-            flagRun("degats passes de " + precedent.degats + " a " + snapshot.degats);
+          if (snapshot.degats > precedent.degats * 50 + 1000 && precedent.degats > 0) {
+            noterRemarque(
+              "bond de dégâts : " + precedent.degats + " vers " + snapshot.degats
+            );
           }
         }
 
@@ -5658,6 +5663,15 @@
         }
       }
 
+      // Remarque : conservee dans le journal, sans invalider le score
+      function noterRemarque(texte) {
+        if (!runFlags.includes(texte)) {
+          runFlags.push(texte);
+          console.info("[Note] " + texte);
+        }
+      }
+
+      // Anomalie reelle : impossible sans manipulation, invalide le score
       function flagRun(raison) {
         if (runFlags.includes(raison)) return;
         runFlags.push(raison);
@@ -9429,7 +9443,7 @@
       // ====== RAFRAICHISSEMENT AUTOMATIQUE ======
       // Tant que le classement est ouvert, on le recharge regulierement
       // pour voir arriver les scores des autres sans recharger la page.
-      const VERSION_JEU = "0.99";
+      const VERSION_JEU = "1.0";
       let minuteurClassement = null;
       let replayOuvert = false;
       const DELAI_RAFRAICHISSEMENT = 15000;
