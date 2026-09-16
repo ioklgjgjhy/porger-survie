@@ -1728,6 +1728,55 @@
         to { transform: translateX(0); opacity: 1; }
       }
 
+      /* Robot allie */
+      .robot-allie {
+        position: absolute;
+        width: 26px;
+        height: 26px;
+        margin-left: -13px;
+        margin-top: -13px;
+        background: linear-gradient(145deg, #5dade2, #2874a6);
+        border: 2px solid #aed6f1;
+        border-radius: 7px;
+        box-shadow: 0 0 12px rgba(52, 152, 219, 0.75),
+          inset 0 2px 4px rgba(255, 255, 255, 0.35);
+        z-index: 10;
+        transition: transform 0.15s;
+      }
+
+      .robot-allie::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        right: -7px;
+        margin-top: -2.5px;
+        width: 9px;
+        height: 5px;
+        background: #34495e;
+        border-radius: 2px;
+      }
+
+      .tir-robot {
+        position: absolute;
+        height: 3px;
+        background: #5dade2;
+        transform-origin: left center;
+        box-shadow: 0 0 7px rgba(52, 152, 219, 0.9);
+        z-index: 11;
+        pointer-events: none;
+        border-radius: 2px;
+      }
+
+      @keyframes ondeDestination {
+        0% { transform: scale(0.4); opacity: 1; }
+        100% { transform: scale(2.2); opacity: 0; }
+      }
+
+      @keyframes apparitionRobot {
+        0% { transform: translate(-50%, -50%) scale(0.85); opacity: 0; }
+        100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+      }
+
       /* Soigneur : halo vert, se repere dans la horde */
       .enemy.healer-zombie {
         width: 34px;
@@ -9678,7 +9727,7 @@
       // ====== RAFRAICHISSEMENT AUTOMATIQUE ======
       // Tant que le classement est ouvert, on le recharge regulierement
       // pour voir arriver les scores des autres sans recharger la page.
-      const VERSION_JEU = "1.08";
+      const VERSION_JEU = "1.09";
       let minuteurClassement = null;
       let replayOuvert = false;
       const DELAI_RAFRAICHISSEMENT = 15000;
@@ -12495,6 +12544,32 @@
         lien.style.color = "rgba(255, 255, 255, 0.5)";
       }
       window.addEventListener("DOMContentLoaded", initContactButton);
+      // Touche T : informations sur le robot
+      document.addEventListener("keydown", (e) => {
+        if (e.key !== "t" && e.key !== "T") return;
+        const champ = document.activeElement;
+        if (champ && /input|textarea/i.test(champ.tagName)) return;
+        if (!gameActive || !robotDisponible()) return;
+        if (document.getElementById("infoRobot")) return;
+        ouvrirInfoRobot();
+      });
+
+      // Clic sur le terrain : envoie le robot si le mode est actif
+      window.addEventListener("DOMContentLoaded", () => {
+        const zone = document.getElementById("gameCanvas");
+        if (!zone) return;
+        zone.addEventListener(
+          "click",
+          (e) => {
+            if (modeOrdreRobot && donnerOrdreRobot(e)) {
+              e.stopPropagation();
+              e.preventDefault();
+            }
+          },
+          true
+        );
+      });
+
       window.addEventListener("DOMContentLoaded", initRaccourcisDev);
       // Dernier filet : envoyer ce qui est en attente avant de fermer
       window.addEventListener("beforeunload", () => {
@@ -13201,6 +13276,12 @@
         finEnCours = false;
         projectilesZombies.forEach((p) => p.element.remove());
         projectilesZombies = [];
+        if (robot && robot.element) robot.element.remove();
+        robot = null;
+        robotDebloque = false;
+        modeOrdreRobot = false;
+        const br = document.getElementById("boutonRobot");
+        if (br) br.remove();
         clearTimeout(waveNextTimerId);
         waveNextTimerId = null;
         clearTimeout(spawnTimerId);
@@ -13771,7 +13852,7 @@
           "pointer-events:none;text-shadow:0 0 6px #2ecc71;" +
           "animation:monteeSoin .8s ease-out forwards";
         e.textContent = "+";
-        gameArea.appendChild(e);
+        gameCanvas.appendChild(e);
         setTimeout(() => e.remove(), 820);
       }
 
@@ -13782,7 +13863,7 @@
         p.className = "projectile-zombie";
         p.style.left = enemy.x + "px";
         p.style.top = enemy.y + "px";
-        gameArea.appendChild(p);
+        gameCanvas.appendChild(p);
 
         const projectile = {
           element: p,
@@ -13831,6 +13912,308 @@
           }
           return true;
         });
+      }
+
+
+      // Message court pendant la partie
+      function messageRobot(texte) {
+        const m = document.createElement("div");
+        m.style.cssText =
+          "position:fixed;top:78px;left:50%;transform:translateX(-50%);" +
+          "background:rgba(20,40,60,.95);border:1px solid #3498db;" +
+          "border-radius:10px;padding:10px 18px;color:#cfe5f5;font-size:13px;" +
+          "z-index:9400;pointer-events:none";
+        m.textContent = texte;
+        document.body.appendChild(m);
+        setTimeout(() => {
+          m.style.transition = "opacity .4s";
+          m.style.opacity = "0";
+          setTimeout(() => m.remove(), 420);
+        }, 2600);
+      }
+
+      // ====== ROBOT ALLIE ======
+      // Debloque a la vague 15. Le joueur le dirige en cliquant sur le
+      // terrain : il va sur place et attaque ce qui traine la-bas,
+      // en priorite les zombies lents (soigneurs, tireurs) que le tir
+      // automatique du joueur ne peut pas atteindre.
+      const ROBOT_VAGUE_DEBLOCAGE = 15;
+      const ROBOT_PRIX = 800;
+
+      let robot = null;
+      let robotDebloque = false;
+      let modeOrdreRobot = false;
+
+      function robotDisponible() {
+        return currentWave >= ROBOT_VAGUE_DEBLOCAGE;
+      }
+
+      // Annonce a la vague 15, une seule fois par partie
+      function verifierDeblocageRobot() {
+        if (robotDebloque || !robotDisponible()) return;
+        robotDebloque = true;
+        annoncerNouveaute();
+        majBoutonRobot();
+      }
+
+      function annoncerNouveaute() {
+        const a = document.createElement("div");
+        a.id = "annonceRobot";
+        a.style.cssText =
+          "position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);" +
+          "background:linear-gradient(145deg,#1a3a52,#0d2030);" +
+          "border:2px solid #3498db;border-radius:16px;padding:22px 28px;" +
+          "z-index:9500;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.7);" +
+          "animation:apparitionRobot .4s ease-out";
+        a.innerHTML =
+          "<div style='font-size:34px;margin-bottom:8px'>\ud83e\udd16</div>" +
+          "<div style='color:#5dade2;font-size:12px;font-weight:bold;" +
+          "letter-spacing:1.5px;margin-bottom:5px'>NOUVEAUTÉ DÉBLOQUÉE</div>" +
+          "<div style='color:#fff;font-size:18px;font-weight:bold;" +
+          "margin-bottom:10px'>Robot allié</div>" +
+          "<div style='color:#aac;font-size:13px;line-height:1.5;max-width:280px'>" +
+          "Il chasse les zombies que tu ne peux pas atteindre.<br>" +
+          "Appuie sur <b style='color:#3498db'>T</b> pour en savoir plus.</div>" +
+          "<button onclick='ouvrirInfoRobot()' style='margin-top:14px;" +
+          "padding:9px 20px;background:#3498db;border:none;border-radius:9px;" +
+          "color:#fff;font-weight:bold;cursor:pointer;font-size:13px'>" +
+          "Voir</button>" +
+          "<button onclick='this.parentElement.remove()' style='margin-top:14px;" +
+          "margin-left:8px;padding:9px 16px;background:rgba(255,255,255,.1);" +
+          "border:none;border-radius:9px;color:#ccc;cursor:pointer;font-size:13px'>" +
+          "Plus tard</button>";
+        document.body.appendChild(a);
+        setTimeout(() => {
+          const el = document.getElementById("annonceRobot");
+          if (el) el.remove();
+        }, 12000);
+      }
+
+      function ouvrirInfoRobot() {
+        const a = document.getElementById("annonceRobot");
+        if (a) a.remove();
+
+        const f = document.createElement("div");
+        f.id = "infoRobot";
+        f.style.cssText =
+          "position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:9600;" +
+          "display:flex;align-items:center;justify-content:center;padding:18px";
+        f.onclick = (e) => {
+          if (e.target === f) f.remove();
+        };
+        const possede = robot !== null;
+        f.innerHTML =
+          "<div style='background:#0f1c2e;border:2px solid #3498db;" +
+          "border-radius:16px;padding:22px;max-width:420px;width:100%'>" +
+          "<div style='display:flex;align-items:center;gap:11px;margin-bottom:14px'>" +
+          "<span style='font-size:26px'>\ud83e\udd16</span>" +
+          "<h2 style='color:#5dade2;font-size:19px;margin:0;flex:1'>Robot allié</h2>" +
+          "<button onclick='document.getElementById(\"infoRobot\").remove()' " +
+          "style='background:none;border:none;color:#888;font-size:24px;" +
+          "cursor:pointer;line-height:1'>&times;</button></div>" +
+
+          "<p style='color:#ccd;font-size:13.5px;line-height:1.6;margin:0 0 14px'>" +
+          "Certains zombies restent en retrait : les <b style='color:#2ecc71'>" +
+          "soigneurs</b> qui rendent des points de vie à la horde, et les " +
+          "<b style='color:#9b59b6'>tireurs</b> qui t'attaquent de loin. " +
+          "Ton tir automatique ne les atteint pas toujours.</p>" +
+
+          "<p style='color:#ccd;font-size:13.5px;line-height:1.6;margin:0 0 14px'>" +
+          "Le robot va les chercher. <b>Clique n'importe où sur le terrain</b> " +
+          "et il s'y rend, puis attaque ce qui s'y trouve.</p>" +
+
+          "<div style='background:rgba(52,152,219,.1);border-left:3px solid #3498db;" +
+          "border-radius:7px;padding:10px 13px;margin-bottom:16px'>" +
+          "<div style='color:#5dade2;font-size:12px;font-weight:bold;" +
+          "margin-bottom:4px'>Autodéfense</div>" +
+          "<div style='color:#99a;font-size:12px;line-height:1.5'>" +
+          "Si un zombie s'approche trop près, il le traite en priorité " +
+          "avant de reprendre sa mission.</div></div>" +
+
+          (possede
+            ? "<div style='text-align:center;color:#2ecc71;font-size:14px;" +
+              "font-weight:bold'>\u2713 Robot déployé</div>"
+            : "<button onclick='acheterRobot()' style='width:100%;padding:13px;" +
+              "background:" + (playerMoney >= ROBOT_PRIX ? "#3498db" : "#555") + ";" +
+              "border:none;border-radius:10px;color:#fff;font-weight:bold;" +
+              "font-size:15px;cursor:pointer'>" +
+              "Déployer \u00b7 " + ROBOT_PRIX + " $</button>" +
+              "<p style='color:#777;font-size:11px;text-align:center;margin:8px 0 0'>" +
+              "Tu as " + Math.round(playerMoney) + " $</p>") +
+          "</div>";
+        document.body.appendChild(f);
+      }
+
+      function acheterRobot() {
+        if (robot) return;
+        if (playerMoney < ROBOT_PRIX) {
+          messageRobot("Pas assez d'argent");
+          return;
+        }
+        playerMoney -= ROBOT_PRIX;
+        updateMoneyDisplay();
+        noterAchat("Robot allié", ROBOT_PRIX);
+        creerRobot();
+        const f = document.getElementById("infoRobot");
+        if (f) f.remove();
+        messageRobot("\ud83e\udd16 Robot déployé — clique sur « Diriger »");
+      }
+
+      function creerRobot() {
+        const el = document.createElement("div");
+        el.className = "robot-allie";
+        el.style.left = playerX + 70 + "px";
+        el.style.top = playerY + "px";
+        gameCanvas.appendChild(el);
+
+        robot = {
+          element: el,
+          x: playerX + 70,
+          y: playerY,
+          cibleX: playerX + 70,
+          cibleY: playerY,
+          vitesse: 1.8,
+          degats: 22,
+          portee: 150,
+          porteeDanger: 75, // moitie, tant qu'il n'est pas ameliore
+          cadence: 700,
+          dernierTir: 0,
+        };
+        majBoutonRobot();
+      }
+
+      // Bouton d'ordre, visible seulement quand le robot existe
+      function majBoutonRobot() {
+        let b = document.getElementById("boutonRobot");
+        if (!robot || !gameActive) {
+          if (b) b.remove();
+          return;
+        }
+        if (!b) {
+          b = document.createElement("button");
+          b.id = "boutonRobot";
+          b.style.cssText =
+            "position:fixed;bottom:88px;left:20px;padding:9px 14px;" +
+            "background:rgba(52,152,219,.2);border:1px solid #3498db;" +
+            "border-radius:10px;color:#5dade2;font-size:13px;cursor:pointer;" +
+            "z-index:150;display:flex;align-items:center;gap:7px";
+          b.onclick = (e) => {
+            e.stopPropagation();
+            basculerOrdreRobot();
+          };
+          document.body.appendChild(b);
+        }
+        b.innerHTML = modeOrdreRobot
+          ? "\ud83c\udfaf <span>Clique une position</span>"
+          : "\ud83e\udd16 <span>Diriger le robot</span>";
+        b.style.background = modeOrdreRobot
+          ? "rgba(46,204,113,.25)"
+          : "rgba(52,152,219,.2)";
+        b.style.borderColor = modeOrdreRobot ? "#2ecc71" : "#3498db";
+      }
+
+      function basculerOrdreRobot() {
+        modeOrdreRobot = !modeOrdreRobot;
+        majBoutonRobot();
+        gameCanvas.style.cursor = modeOrdreRobot ? "crosshair" : "";
+      }
+
+      // Envoie le robot a l'endroit clique
+      function donnerOrdreRobot(e) {
+        if (!robot || !modeOrdreRobot) return false;
+        const rect = gameCanvas.getBoundingClientRect();
+        robot.cibleX = e.clientX - rect.left;
+        robot.cibleY = e.clientY - rect.top;
+        modeOrdreRobot = false;
+        gameCanvas.style.cursor = "";
+        majBoutonRobot();
+        marquerDestination(robot.cibleX, robot.cibleY);
+        return true;
+      }
+
+      function marquerDestination(x, y) {
+        const m = document.createElement("div");
+        m.style.cssText =
+          "position:absolute;left:" + x + "px;top:" + y + "px;" +
+          "width:30px;height:30px;margin-left:-15px;margin-top:-15px;" +
+          "border:2px solid #3498db;border-radius:50%;z-index:9;" +
+          "pointer-events:none;animation:ondeDestination .9s ease-out forwards";
+        gameCanvas.appendChild(m);
+        setTimeout(() => m.remove(), 920);
+      }
+
+      // Deplacement et tir du robot
+      function majRobot() {
+        if (!robot || !gameActive) return;
+        const maintenant = Date.now();
+
+        // 1. Menace immediate : un zombie trop proche passe avant tout
+        let menace = null;
+        let distMenace = Infinity;
+        let cibleLointaine = null;
+        let distCible = Infinity;
+
+        enemies.forEach((e) => {
+          const dx = e.x - robot.x;
+          const dy = e.y - robot.y;
+          const d = Math.sqrt(dx * dx + dy * dy);
+
+          if (d <= robot.porteeDanger && d < distMenace) {
+            distMenace = d;
+            menace = e;
+          }
+          if (d <= robot.portee) {
+            // Priorite aux zombies lents : soigneurs puis tireurs
+            const poids = e.soigne ? 0 : e.tire ? 1 : 2;
+            const score = poids * 1000 + d;
+            if (score < distCible) {
+              distCible = score;
+              cibleLointaine = e;
+            }
+          }
+        });
+
+        const cible = menace || cibleLointaine;
+
+        // 2. Deplacement vers la destination donnee
+        const dx = robot.cibleX - robot.x;
+        const dy = robot.cibleY - robot.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > 6) {
+          robot.x += (dx / dist) * robot.vitesse * gameSpeed;
+          robot.y += (dy / dist) * robot.vitesse * gameSpeed;
+          robot.element.style.left = robot.x + "px";
+          robot.element.style.top = robot.y + "px";
+        }
+
+        // 3. Tir
+        if (cible && maintenant - robot.dernierTir > robot.cadence / gameSpeed) {
+          robot.dernierTir = maintenant;
+          tirerRobot(cible, menace !== null);
+        }
+      }
+
+      function tirerRobot(cible, estMenace) {
+        const angle = Math.atan2(cible.y - robot.y, cible.x - robot.x);
+        robot.element.style.transform =
+          "rotate(" + (angle * 180) / Math.PI + "deg)";
+
+        const t = document.createElement("div");
+        t.className = "tir-robot";
+        if (estMenace) t.style.background = "#e74c3c";
+        t.style.left = robot.x + "px";
+        t.style.top = robot.y + "px";
+        gameCanvas.appendChild(t);
+
+        // Rayon instantane vers la cible
+        const d = Math.sqrt(
+          Math.pow(cible.x - robot.x, 2) + Math.pow(cible.y - robot.y, 2)
+        );
+        t.style.width = d + "px";
+        t.style.transform = "rotate(" + (angle * 180) / Math.PI + "deg)";
+        setTimeout(() => t.remove(), 140);
+
+        damageEnemy(cible, robot.degats);
       }
 
       function spawnEnemy() {
@@ -14148,6 +14531,7 @@
           });
 
           majProjectilesZombies();
+          majRobot();
 
           // Ennemis se déplacent vers le joueur
           const currentTime = Date.now();
@@ -14569,6 +14953,9 @@
 
       // Démarrer une nouvelle vague
       function startWave() {
+        if (typeof verifierDeblocageRobot === "function") {
+          verifierDeblocageRobot();
+        }
         // Annuler tout lancement de vague ou spawn en attente,
         // sinon deux vagues peuvent tourner en meme temps
         clearTimeout(waveNextTimerId);
