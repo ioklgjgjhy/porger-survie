@@ -1957,13 +1957,31 @@
         left: 50%;
         transform: translate(-50%, -50%);
         background: rgba(0, 0, 0, 0.95);
-        padding: 40px;
+        padding: 30px 40px;
         border-radius: 15px;
         text-align: center;
         color: white;
         display: none;
         z-index: 200;
         border: 3px solid #e74c3c;
+        /* Le contenu defile au lieu de pousser les boutons hors de l'ecran */
+        max-height: 88vh;
+        max-width: 92vw;
+        overflow-y: auto;
+        box-sizing: border-box;
+      }
+
+      /* Les boutons restent visibles, collés en bas du panneau */
+      #gameOver .zone-boutons {
+        position: sticky;
+        bottom: -30px;
+        background: linear-gradient(
+          to bottom,
+          rgba(0, 0, 0, 0) 0%,
+          rgba(0, 0, 0, 0.95) 28%
+        );
+        padding: 18px 0 8px;
+        margin-top: 12px;
       }
 
       #gameOver h1 {
@@ -5279,8 +5297,10 @@
         </p>
         <p style="font-size: 16px">💀 Kills: <span id="finalKills">0</span></p>
         <p style="font-size: 14px">⏱️ Temps: <span id="finalTime">0</span>s</p>
-        <button onclick="restartGame()">🔄 Rejouer</button>
-        <button class="menu-btn" onclick="backToHub()">🏠 Hub</button>
+        <div class="zone-boutons">
+          <button onclick="restartGame()">🔄 Rejouer</button>
+          <button class="menu-btn" onclick="backToHub()">🏠 Hub</button>
+        </div>
       </div>
     </div>
 
@@ -9409,7 +9429,7 @@
       // ====== RAFRAICHISSEMENT AUTOMATIQUE ======
       // Tant que le classement est ouvert, on le recharge regulierement
       // pour voir arriver les scores des autres sans recharger la page.
-      const VERSION_JEU = "0.98";
+      const VERSION_JEU = "0.99";
       let minuteurClassement = null;
       let replayOuvert = false;
       const DELAI_RAFRAICHISSEMENT = 15000;
@@ -12556,6 +12576,7 @@
         gameStartTime = Date.now(); // Enregistrer l'heure de début pour la période de grâce
         enemiesSpawnedTotal = 0;
         picArgent = 0;
+        finEnCours = false;
         clearTimeout(waveNextTimerId);
         waveNextTimerId = null;
         clearTimeout(spawnTimerId);
@@ -13493,7 +13514,12 @@
         };
       }
 
+      let finEnCours = false;
       function endGame() {
+        // Sans cette garde, endGame pouvait etre appele en boucle et
+        // empiler des dizaines de blocs de recompenses
+        if (finEnCours || !gameActive) return;
+        finEnCours = true;
         gameActive = false;
         // Dernier controle avant de figer le score
         checkIntegrity();
@@ -13565,8 +13591,11 @@
         const returnBtn = document.getElementById("returnToHubBtn");
         if (returnBtn) returnBtn.style.display = "none";
 
-        // Afficher les récompenses gagnées
+        // Afficher les récompenses : on retire l'ancien bloc d'abord
+        const ancien = document.getElementById("blocRecompenses");
+        if (ancien) ancien.remove();
         const rewardsInfo = document.createElement("div");
+        rewardsInfo.id = "blocRecompenses";
         rewardsInfo.style.cssText = "margin-top: 15px;";
         rewardsInfo.innerHTML = `
           <p style="color: #f1c40f; font-size: 18px; margin: 5px 0;">💰 +${coinsEarned} pièces</p>
