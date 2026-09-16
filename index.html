@@ -1401,6 +1401,34 @@
         from { background-position-x: 0; }
         to { background-position-x: -320px; }
       }
+      /* Chaque type a sa propre largeur d'image : sans animation
+         dediee, les sprites sautaient des images */
+      @keyframes marcheRapide {
+        from { background-position-x: 0; }
+        to { background-position-x: -240px; }
+      }
+      @keyframes marcheTank {
+        from { background-position-x: 0; }
+        to { background-position-x: -480px; }
+      }
+      @keyframes marcheSoigneur {
+        from { background-position-x: 0; }
+        to { background-position-x: -272px; }
+      }
+      @keyframes marcheTireur {
+        from { background-position-x: 0; }
+        to { background-position-x: -288px; }
+      }
+      @keyframes marcheBoss {
+        from { background-position-x: 0; }
+        to { background-position-x: -800px; }
+      }
+
+      .enemy.fast-zombie { animation: marcheRapide 0.42s steps(8) infinite; }
+      .enemy.tank-zombie { animation: marcheTank 0.8s steps(8) infinite; }
+      .enemy.healer-zombie { animation: marcheSoigneur 0.65s steps(8) infinite; }
+      .enemy.shooter-zombie { animation: marcheTireur 0.6s steps(8) infinite; }
+      .enemy.boss { animation: marcheBoss 0.9s steps(8) infinite; }
 
       .enemy.dir-bas { background-position-y: 0; }
       .enemy.dir-droite { background-position-y: -40px; }
@@ -8978,17 +9006,10 @@
           '<div style="font-size:13px;color:#bbb;overflow:hidden;' +
           'text-overflow:ellipsis;white-space:nowrap">' + item.name + "</div>" +
           '<div style="font-size:11px;color:#f1c40f">+' + gain + " pièces</div></div>";
-        const dejaLa = document.querySelectorAll(".loot-drop-popup").length;
+        const dejaLa = document.querySelectorAll('.loot-drop-popup:not([data-sortie="1"])').length;
         popup.style.bottom = 20 + dejaLa * 72 + "px";
         document.body.appendChild(popup);
-        setTimeout(() => {
-          if (popup.parentElement) {
-            popup.style.transition = "opacity .3s, transform .3s";
-            popup.style.opacity = "0";
-            popup.style.transform = "translateX(-120%)";
-            setTimeout(() => popup.remove(), 320);
-          }
-        }, 2600);
+        setTimeout(() => fermerNotification(popup), 2600);
       }
 
       // Afficher le popup de loot
@@ -9026,20 +9047,13 @@
         `;
 
         // Empiler les notifications au lieu de les superposer
-        const dejaLa = document.querySelectorAll(".loot-drop-popup").length;
+        const dejaLa = document.querySelectorAll('.loot-drop-popup:not([data-sortie="1"])').length;
         popup.style.bottom = 20 + dejaLa * 72 + "px";
 
         document.body.appendChild(popup);
 
         // Disparait toute seule, sans rien demander au joueur
-        setTimeout(() => {
-          if (popup.parentElement) {
-            popup.style.transition = "opacity .3s, transform .3s";
-            popup.style.opacity = "0";
-            popup.style.transform = "translateX(-120%)";
-            setTimeout(() => popup.remove(), 320);
-          }
-        }, 3200);
+        setTimeout(() => fermerNotification(popup), 3200);
       }
 
       // Afficher popup de drop de parchemin
@@ -9060,18 +9074,11 @@
           echapper(scroll.name) + "</div>" +
           '<div style="font-size:11px;color:#3498db">Améliore tes objets</div></div>';
 
-        const dejaLa = document.querySelectorAll(".loot-drop-popup").length;
+        const dejaLa = document.querySelectorAll('.loot-drop-popup:not([data-sortie="1"])').length;
         popup.style.bottom = 20 + dejaLa * 72 + "px";
         document.body.appendChild(popup);
 
-        setTimeout(() => {
-          if (popup.parentElement) {
-            popup.style.transition = "opacity .3s, transform .3s";
-            popup.style.opacity = "0";
-            popup.style.transform = "translateX(-120%)";
-            setTimeout(() => popup.remove(), 320);
-          }
-        }, 2800);
+        setTimeout(() => fermerNotification(popup), 2800);
       }
 
       // Intégrer le drop dans la fonction damageEnemy existante
@@ -9739,7 +9746,7 @@
       // ====== RAFRAICHISSEMENT AUTOMATIQUE ======
       // Tant que le classement est ouvert, on le recharge regulierement
       // pour voir arriver les scores des autres sans recharger la page.
-      const VERSION_JEU = "1.10";
+      const VERSION_JEU = "1.11";
       let minuteurClassement = null;
       let replayOuvert = false;
       const DELAI_RAFRAICHISSEMENT = 15000;
@@ -10051,7 +10058,7 @@
       function notifierNouveauMessage(nombre) {
         const n = document.createElement("div");
         // En bas a gauche : le haut a droite est occupe par les stats
-        const dejaLa = document.querySelectorAll(".loot-drop-popup").length;
+        const dejaLa = document.querySelectorAll('.loot-drop-popup:not([data-sortie="1"])').length;
         n.style.cssText =
           "position:fixed;bottom:" + (20 + dejaLa * 72 + 60) + "px;left:20px;" +
           "z-index:99999;background:#3498db;color:#fff;padding:12px 16px;" +
@@ -13292,6 +13299,7 @@
         robot = null;
         robotDebloque = false;
         modeOrdreRobot = false;
+        ordreRobotContinu = false;
         const br = document.getElementById("boutonRobot");
         if (br) br.remove();
         clearTimeout(waveNextTimerId);
@@ -13927,6 +13935,31 @@
       }
 
 
+      // Repositionne les notifications restantes : sans cela, un trou
+      // se formait quand l'une d'elles disparaissait avant les autres
+      function reempilerNotifications() {
+        const liste = [...document.querySelectorAll(".loot-drop-popup")].filter(
+          (n) => n.dataset.sortie !== "1"
+        );
+        liste.forEach((n, i) => {
+          n.style.transition = "bottom .25s ease-out, opacity .3s, transform .3s";
+          n.style.bottom = 20 + i * 72 + "px";
+        });
+      }
+
+      // Ferme une notification proprement et retasse les autres
+      function fermerNotification(popup) {
+        if (!popup || popup.dataset.sortie === "1") return;
+        popup.dataset.sortie = "1";
+        popup.style.transition = "opacity .3s, transform .3s";
+        popup.style.opacity = "0";
+        popup.style.transform = "translateX(-120%)";
+        setTimeout(() => {
+          popup.remove();
+          reempilerNotifications();
+        }, 320);
+      }
+
       // Message court pendant la partie
       function messageRobot(texte) {
         const m = document.createElement("div");
@@ -13971,34 +14004,34 @@
       function annoncerNouveaute() {
         const a = document.createElement("div");
         a.id = "annonceRobot";
+        // Petite banniere a gauche, qui ne bloque pas la vue
         a.style.cssText =
-          "position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);" +
+          "position:fixed;top:270px;left:20px;max-width:250px;" +
           "background:linear-gradient(145deg,#1a3a52,#0d2030);" +
-          "border:2px solid #3498db;border-radius:16px;padding:22px 28px;" +
-          "z-index:9500;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.7);" +
-          "animation:apparitionRobot .4s ease-out";
+          "border:1px solid #3498db;border-radius:12px;padding:13px 15px;" +
+          "z-index:9500;box-shadow:0 6px 22px rgba(0,0,0,.6);" +
+          "animation:glisserGauche .35s ease-out;cursor:pointer";
+        a.onclick = () => ouvrirInfoRobot();
         a.innerHTML =
-          "<div style='font-size:34px;margin-bottom:8px'>\ud83e\udd16</div>" +
-          "<div style='color:#5dade2;font-size:12px;font-weight:bold;" +
-          "letter-spacing:1.5px;margin-bottom:5px'>NOUVEAUTÉ DÉBLOQUÉE</div>" +
-          "<div style='color:#fff;font-size:18px;font-weight:bold;" +
-          "margin-bottom:10px'>Robot allié</div>" +
-          "<div style='color:#aac;font-size:13px;line-height:1.5;max-width:280px'>" +
-          "Il chasse les zombies que tu ne peux pas atteindre.<br>" +
-          "Appuie sur <b style='color:#3498db'>T</b> pour en savoir plus.</div>" +
-          "<button onclick='ouvrirInfoRobot()' style='margin-top:14px;" +
-          "padding:9px 20px;background:#3498db;border:none;border-radius:9px;" +
-          "color:#fff;font-weight:bold;cursor:pointer;font-size:13px'>" +
-          "Voir</button>" +
-          "<button onclick='this.parentElement.remove()' style='margin-top:14px;" +
-          "margin-left:8px;padding:9px 16px;background:rgba(255,255,255,.1);" +
-          "border:none;border-radius:9px;color:#ccc;cursor:pointer;font-size:13px'>" +
-          "Plus tard</button>";
+          "<div style='display:flex;align-items:center;gap:9px;margin-bottom:6px'>" +
+          "<span style='font-size:21px'>\ud83e\udd16</span>" +
+          "<div><div style='color:#5dade2;font-size:10px;font-weight:bold;" +
+          "letter-spacing:1px'>NOUVEAUTÉ</div>" +
+          "<div style='color:#fff;font-size:14px;font-weight:bold'>" +
+          "Robot allié</div></div></div>" +
+          "<div style='color:#9ab;font-size:11.5px;line-height:1.45'>" +
+          "Touche <b style='color:#3498db'>T</b> ou clique ici pour en " +
+          "savoir plus.</div>";
         document.body.appendChild(a);
         setTimeout(() => {
           const el = document.getElementById("annonceRobot");
-          if (el) el.remove();
-        }, 12000);
+          if (el) {
+            el.style.transition = "opacity .4s, transform .4s";
+            el.style.opacity = "0";
+            el.style.transform = "translateX(-110%)";
+            setTimeout(() => el.remove(), 420);
+          }
+        }, 8000);
       }
 
       function ouvrirInfoRobot() {
@@ -14115,9 +14148,15 @@
           };
           document.body.appendChild(b);
         }
-        b.innerHTML = modeOrdreRobot
-          ? "\ud83c\udfaf <span>Clique une position</span>"
-          : "\ud83e\udd16 <span>Diriger le robot</span>";
+        b.innerHTML =
+          (modeOrdreRobot
+            ? "\ud83c\udfaf <span>Clique une position</span>"
+            : "\ud83e\udd16 <span>Diriger le robot</span>") +
+          "<span onclick='basculerModeContinu(event)' title='Rester en mode " +
+          "direction apres chaque ordre' style='margin-left:6px;padding:2px 7px;" +
+          "border-radius:6px;font-size:11px;border:1px solid " +
+          (ordreRobotContinu ? "#2ecc71;color:#2ecc71" : "#667;color:#889") +
+          "'>\u21bb</span>";
         b.style.background = modeOrdreRobot
           ? "rgba(46,204,113,.25)"
           : "rgba(52,152,219,.2)";
@@ -14130,17 +14169,43 @@
         gameCanvas.style.cursor = modeOrdreRobot ? "crosshair" : "";
       }
 
+      // Si vrai, le mode reste actif apres un ordre
+      let ordreRobotContinu = false;
+
       // Envoie le robot a l'endroit clique
       function donnerOrdreRobot(e) {
         if (!robot || !modeOrdreRobot) return false;
+
         const rect = gameCanvas.getBoundingClientRect();
-        robot.cibleX = e.clientX - rect.left;
-        robot.cibleY = e.clientY - rect.top;
-        modeOrdreRobot = false;
-        gameCanvas.style.cursor = "";
+        // La zone de jeu peut etre redimensionnee par le navigateur :
+        // sans ce rapport, le robot allait a cote du point clique
+        const rapportX = gameCanvas.offsetWidth
+          ? gameCanvas.offsetWidth / rect.width
+          : 1;
+        const rapportY = gameCanvas.offsetHeight
+          ? gameCanvas.offsetHeight / rect.height
+          : 1;
+
+        robot.cibleX = (e.clientX - rect.left) * rapportX;
+        robot.cibleY = (e.clientY - rect.top) * rapportY;
+
+        if (!ordreRobotContinu) {
+          modeOrdreRobot = false;
+          gameCanvas.style.cursor = "";
+        }
         majBoutonRobot();
         marquerDestination(robot.cibleX, robot.cibleY);
         return true;
+      }
+
+      function basculerModeContinu(e) {
+        e.stopPropagation();
+        ordreRobotContinu = !ordreRobotContinu;
+        if (ordreRobotContinu && !modeOrdreRobot) {
+          modeOrdreRobot = true;
+          gameCanvas.style.cursor = "crosshair";
+        }
+        majBoutonRobot();
       }
 
       function marquerDestination(x, y) {
