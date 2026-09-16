@@ -3215,6 +3215,55 @@
         padding: 20px;
       }
 
+      /* Sur grand ecran, personnage et inventaire cote a cote :
+         l'inventaire n'est plus ecrase en bas de la page */
+      @media (min-width: 900px) {
+        /* L'ecran passe en lignes : en-tete pleine largeur, puis
+           le personnage et l'inventaire cote a cote */
+        #equipmentScreen {
+          flex-direction: row;
+          flex-wrap: wrap;
+          align-content: flex-start;
+          overflow: hidden;
+        }
+
+        #equipmentScreen .equip-header {
+          width: 100%;
+          flex: 0 0 100%;
+        }
+
+        .equip-center {
+          flex: 0 0 44%;
+          max-width: 44%;
+          padding: 16px;
+          overflow-y: auto;
+        }
+
+        .equip-inventory-section {
+          flex: 1;
+          border-top: none;
+          border-left: 3px solid rgba(0, 184, 148, 0.3);
+          min-height: 0;
+          max-height: 100%;
+          overflow-y: auto;
+        }
+
+        .equip-inv-grid {
+          grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+        }
+      }
+
+      /* Ecrans tres larges : encore plus de place pour les objets */
+      @media (min-width: 1400px) {
+        .equip-center {
+          flex: 0 0 38%;
+          max-width: 38%;
+        }
+        .equip-inv-grid {
+          grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+        }
+      }
+
       /* Container du personnage avec slots */
       .equip-character-area {
         position: relative;
@@ -9551,7 +9600,7 @@
       // ====== RAFRAICHISSEMENT AUTOMATIQUE ======
       // Tant que le classement est ouvert, on le recharge regulierement
       // pour voir arriver les scores des autres sans recharger la page.
-      const VERSION_JEU = "1.05";
+      const VERSION_JEU = "1.06";
       let minuteurClassement = null;
       let replayOuvert = false;
       const DELAI_RAFRAICHISSEMENT = 15000;
