@@ -3,7 +3,41 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Jeu de Survie - Zombies</title>
+    <title>Porger Survie — Tower defense zombies</title>
+
+    <!-- Apercu affiche quand le lien est partage (Discord, WhatsApp...) -->
+    <meta
+      name="description"
+      content="Défends ta position contre des vagues de zombies. Gratuit, sans installation, avec classement en ligne."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Porger Survie" />
+    <meta
+      property="og:description"
+      content="Survis aux vagues de zombies. Gratuit, sans installation, classement en ligne."
+    />
+    <meta
+      property="og:image"
+      content="https://ioklgjgjhy.github.io/porger-survie/miniature.png"
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:url"
+      content="https://ioklgjgjhy.github.io/porger-survie/"
+    />
+    <meta property="og:site_name" content="Porger Survie" />
+    <meta name="theme-color" content="#2ecc71" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Porger Survie" />
+    <meta
+      name="twitter:description"
+      content="Survis aux vagues de zombies. Gratuit, sans installation."
+    />
+    <meta
+      name="twitter:image"
+      content="https://ioklgjgjhy.github.io/porger-survie/miniature.png"
+    />
     <style>
       * {
         margin: 0;
@@ -9443,7 +9477,7 @@
       // ====== RAFRAICHISSEMENT AUTOMATIQUE ======
       // Tant que le classement est ouvert, on le recharge regulierement
       // pour voir arriver les scores des autres sans recharger la page.
-      const VERSION_JEU = "1.02";
+      const VERSION_JEU = "1.03";
       let minuteurClassement = null;
       let replayOuvert = false;
       const DELAI_RAFRAICHISSEMENT = 15000;
