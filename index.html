@@ -7176,25 +7176,6 @@
       // Compétences actives (à acheter et utiliser avec une touche)
       const ACTIVE_SKILLS = [
         {
-          id: "robot",
-          icon: "\ud83e\udd16",
-          name: "Diriger le robot",
-          desc: "Envoie le robot à l'endroit cliqué. Aucune touche par défaut : assigne-la si tu veux.",
-          basePrice: 0,
-          priceMultiplier: 1,
-          requiredLevel: 1,
-          cooldown: 0,
-          defaultKey: "", // volontairement non assignee
-          besoinRobot: true,
-          effect: () => {
-            if (!robot) {
-              messageRobot("Achète d'abord le robot (touche T)");
-              return;
-            }
-            basculerOrdreRobot();
-          },
-        },
-        {
           id: "bomb",
           icon: "💣",
           name: "Bombe",
@@ -9648,15 +9629,6 @@
 
       // Attribue un pseudo a la premiere connexion :
       // d'abord le nom du compte Google, sinon Utilisateur1, 2, 3...
-      // La competence robot est disponible sans achat : elle depend
-      // seulement de la possession du robot sur le terrain
-      function assurerCompetenceRobot() {
-        if (!ownedActiveSkills) return;
-        if (!ownedActiveSkills.robot) {
-          ownedActiveSkills.robot = { level: 1, key: "" };
-        }
-      }
-
       // Pseudo par defaut : Utilisateur1, puis 2, 3... jusqu'a un libre.
       // Le joueur est invite a le personnaliser apres sa partie.
       async function assurerPseudo() {
@@ -9824,7 +9796,7 @@
       // ====== RAFRAICHISSEMENT AUTOMATIQUE ======
       // Tant que le classement est ouvert, on le recharge regulierement
       // pour voir arriver les scores des autres sans recharger la page.
-      const VERSION_JEU = "1.15";
+      const VERSION_JEU = "1.16";
       let minuteurClassement = null;
       let replayOuvert = false;
       const DELAI_RAFRAICHISSEMENT = 15000;
@@ -12182,8 +12154,42 @@
         musicEnabled = r.music !== false;
       }
 
+      // Champ de saisie de la touche du robot, dans les reglages
+      function ajouterReglageRobot() {
+        if (document.getElementById("reglageToucheRobot")) {
+          const c = document.getElementById("champToucheRobot");
+          if (c) c.value = toucheRobot().toUpperCase();
+          return;
+        }
+        const vib = document.getElementById("settingVibration");
+        const conteneur = vib
+          ? vib.closest("div").parentElement
+          : document.getElementById("hubSettingsMenu");
+        if (!conteneur) return;
+
+        const bloc = document.createElement("div");
+        bloc.id = "reglageToucheRobot";
+        bloc.style.cssText =
+          "display:flex;align-items:center;gap:12px;padding:12px 14px;" +
+          "background:rgba(255,255,255,.04);border-radius:10px;margin-top:10px";
+        bloc.innerHTML =
+          "<span style='font-size:19px'>\ud83e\udd16</span>" +
+          "<div style='flex:1'>" +
+          "<div style='color:#eee;font-size:14px'>Touche du robot</div>" +
+          "<div style='color:#888;font-size:11px'>Une lettre pour le diriger " +
+          "(vide = aucune)</div></div>" +
+          "<input id='champToucheRobot' maxlength='1' value='" +
+          toucheRobot().toUpperCase() + "' " +
+          "onchange='definirToucheRobot(this.value)' " +
+          "placeholder='—' style='width:46px;padding:8px;text-align:center;" +
+          "text-transform:uppercase;background:#0d0d22;border:1px solid #555;" +
+          "border-radius:8px;color:#fff;font-size:15px;font-weight:bold'>";
+        conteneur.appendChild(bloc);
+      }
+
       function openHubSettings() {
         synchroniserReglages();
+        ajouterReglageRobot();
         closeHubSubmenu();
         document.getElementById("hubSettingsMenu").style.display = "flex";
       }
@@ -14244,6 +14250,11 @@
       }
 
       function creerRobot() {
+        // Nettoyage : le robot a brievement ete une competence achetable
+        if (ownedActiveSkills && ownedActiveSkills.robot) {
+          delete ownedActiveSkills.robot;
+          savePermanentData();
+        }
         const el = document.createElement("div");
         el.className = "robot-allie";
         el.style.left = playerX + 70 + "px";
@@ -14267,10 +14278,6 @@
           cadence: 700,
           dernierTir: 0,
         };
-        assurerCompetenceRobot();
-        if (typeof updateActiveSkillsBar === "function") {
-          updateActiveSkillsBar();
-        }
         majBoutonRobot();
       }
 
@@ -14295,10 +14302,13 @@
           };
           document.body.appendChild(b);
         }
+        const t = toucheRobot();
         b.innerHTML =
           (modeOrdreRobot
             ? "\ud83c\udfaf <span>Clique une position</span>"
-            : "\ud83e\udd16 <span>Diriger le robot</span>") +
+            : "\ud83e\udd16 <span>Diriger le robot" +
+              (t ? " <b style='opacity:.7'>(" + t.toUpperCase() + ")</b>" : "") +
+              "</span>") +
           "<span onclick='basculerModeContinu(event)' title='Rester en mode " +
           "direction apres chaque ordre' style='margin-left:6px;padding:2px 7px;" +
           "border-radius:6px;font-size:11px;border:1px solid " +
@@ -14318,6 +14328,32 @@
 
       // Si vrai, le mode reste actif apres un ordre
       let ordreRobotContinu = false;
+
+      // Touche pour diriger le robot : aucune par defaut
+      function toucheRobot() {
+        return (permanentData.settings && permanentData.settings.toucheRobot) || "";
+      }
+
+      function definirToucheRobot(valeur) {
+        permanentData.settings = permanentData.settings || {};
+        permanentData.settings.toucheRobot = (valeur || "")
+          .trim()
+          .slice(0, 1)
+          .toLowerCase();
+        savePermanentData();
+        majBoutonRobot();
+      }
+
+      // Raccourci clavier, s'il a ete defini
+      document.addEventListener("keydown", (e) => {
+        const t = toucheRobot();
+        if (!t || e.key.toLowerCase() !== t) return;
+        const champ = document.activeElement;
+        if (champ && /input|textarea/i.test(champ.tagName)) return;
+        if (!robot || !gameActive || gamePaused) return;
+        e.preventDefault();
+        basculerOrdreRobot();
+      });
 
       // Envoie le robot a l'endroit clique
       function donnerOrdreRobot(e) {
