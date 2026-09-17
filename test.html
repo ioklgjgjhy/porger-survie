@@ -11894,22 +11894,44 @@
           tuile("\u2b50", "Niveau", "Nombre de niveaux à gagner", V,
             reglage("niveaux", V, "devNiveau(-1)", "devNiveau(1)")) +
 
-          titreSection("RESSOURCES DU HUB") +
-          tuile("\ud83d\udcb0", "Pièces",
-            "Hub \u00b7 tu en as " +
-              (permanentData.coins || 0).toLocaleString("fr-FR"), J,
-            reglage("pieces", J, "devPieces(-1)", "devPieces(1)")) +
-          tuile("\ud83d\udc8e", "Gemmes",
-            "Hub \u00b7 tu en as " + (permanentData.gems || 0), B,
-            reglage("gemmes", B, "devGemmes(-1)", "devGemmes(1)")) +
+          // --- Bloc HUB, encadre en jaune ---
+          "<div style='border:1px solid rgba(232,197,71,.3);border-radius:16px;" +
+          "padding:11px;margin-top:16px;background:rgba(232,197,71,.04)'>" +
+          "<div style='color:#e8c547;font-size:11px;font-weight:700;" +
+          "letter-spacing:1.2px;margin-bottom:9px;display:flex;" +
+          "align-items:center;gap:7px'>" +
+          "<span style='font-size:14px'>\ud83c\udfe0</span>" +
+          "RESTE DANS LE HUB &nbsp;\u00b7&nbsp; " +
+          "<span style='font-weight:400;color:#8a8a5a;letter-spacing:0'>" +
+          "pour les armures et compétences</span></div>" +
 
-          titreSection("ARGENT DE LA PARTIE") +
-          tuile("\ud83d\udcb5", "Argent en jeu",
+          tuile("\ud83d\udcb0", "Pièces du hub",
+            "Tu en as " + (permanentData.coins || 0).toLocaleString("fr-FR"), J,
+            reglage("pieces", J, "devPieces(-1)", "devPieces(1)")) +
+          tuile("\ud83d\udc8e", "Gemmes du hub",
+            "Tu en as " + (permanentData.gems || 0), B,
+            reglage("gemmes", B, "devGemmes(-1)", "devGemmes(1)")) +
+          "</div>" +
+
+          // --- Bloc PARTIE, encadre en vert ---
+          "<div style='border:1px solid rgba(46,196,166,.35);border-radius:16px;" +
+          "padding:11px;margin-top:14px;background:rgba(46,196,166,.05)'>" +
+          "<div style='color:#2ec4a6;font-size:11px;font-weight:700;" +
+          "letter-spacing:1.2px;margin-bottom:9px;display:flex;" +
+          "align-items:center;gap:7px'>" +
+          "<span style='font-size:14px'>\u2694\ufe0f</span>" +
+          "PARTIE EN COURS &nbsp;\u00b7&nbsp; " +
+          "<span style='font-weight:400;color:#5a8a80;letter-spacing:0'>" +
+          "perdu à la mort</span></div>" +
+
+          tuile("\ud83e\uddfe", "Argent de la partie",
             gameActive
-              ? "Tu as " + Math.round(playerMoney) + " $ dans cette partie"
+              ? "Tu as " + Math.round(playerMoney) +
+                " $ \u00b7 sert à la boutique (touche E)"
               : "Aucune partie en cours",
             gameActive ? VT : G,
             reglage("argent", VT, "devArgentPartie(-1)", "devArgentPartie(1)")) +
+          "</div>" +
 
           titreSection("COMBAT") +
           tuile("\ud83d\udee1\ufe0f", "Invincibilité",
