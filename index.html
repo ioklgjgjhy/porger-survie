@@ -9794,7 +9794,7 @@
       // ====== RAFRAICHISSEMENT AUTOMATIQUE ======
       // Tant que le classement est ouvert, on le recharge regulierement
       // pour voir arriver les scores des autres sans recharger la page.
-      const VERSION_JEU = "1.13";
+      const VERSION_JEU = "1.14";
       let minuteurClassement = null;
       let replayOuvert = false;
       const DELAI_RAFRAICHISSEMENT = 15000;
@@ -11568,10 +11568,22 @@
       }
 
       function devArgentPartie(sens) {
-        if (!gameActive) return messageDev("Lance une partie d'abord");
+        if (!gameActive) {
+          return messageDev("Aucune partie en cours — lance une partie");
+        }
         playerMoney = Math.max(0, playerMoney + REGLAGES_DEV.argent.v * sens);
         if (typeof updateMoneyDisplay === "function") updateMoneyDisplay();
-        messageDev("Argent : " + Math.round(playerMoney) + " $");
+        messageDev(
+          (sens > 0 ? "+" : "-") + REGLAGES_DEV.argent.v +
+          " $ en jeu \u00b7 total " + Math.round(playerMoney) + " $"
+        );
+        rafraichirPanneauDev();
+      }
+
+      // Remet a jour les soldes affiches sans fermer le panneau
+      function rafraichirPanneauDev() {
+        const f = document.getElementById("panneauDev");
+        if (f && f.style.display === "flex") rendrePanneauDev();
       }
 
       const ACTIONS_DEV = [
@@ -11803,12 +11815,21 @@
           tuile("\u2b50", "Niveau", "Nombre de niveaux à gagner", V,
             reglage("niveaux", V, "devNiveau(-1)", "devNiveau(1)")) +
 
-          titreSection("RESSOURCES") +
-          tuile("\ud83d\udcb0", "Pièces", "Quantité à ajouter ou retirer", J,
+          titreSection("RESSOURCES DU HUB") +
+          tuile("\ud83d\udcb0", "Pièces",
+            "Hub \u00b7 tu en as " +
+              (permanentData.coins || 0).toLocaleString("fr-FR"), J,
             reglage("pieces", J, "devPieces(-1)", "devPieces(1)")) +
-          tuile("\ud83d\udc8e", "Gemmes", "Quantité à ajouter ou retirer", B,
+          tuile("\ud83d\udc8e", "Gemmes",
+            "Hub \u00b7 tu en as " + (permanentData.gems || 0), B,
             reglage("gemmes", B, "devGemmes(-1)", "devGemmes(1)")) +
-          tuile("\ud83d\udcb5", "Argent", "En jeu uniquement", VT,
+
+          titreSection("ARGENT DE LA PARTIE") +
+          tuile("\ud83d\udcb5", "Argent en jeu",
+            gameActive
+              ? "Tu as " + Math.round(playerMoney) + " $ dans cette partie"
+              : "Aucune partie en cours",
+            gameActive ? VT : G,
             reglage("argent", VT, "devArgentPartie(-1)", "devArgentPartie(1)")) +
 
           titreSection("COMBAT") +
@@ -11911,7 +11932,8 @@
         updateHubDisplay();
         messageDev(
           (sens > 0 ? "+" : "-") +
-          REGLAGES_DEV.pieces.v.toLocaleString("fr-FR") + " pièces");
+          REGLAGES_DEV.pieces.v.toLocaleString("fr-FR") + " pièces (hub)");
+        rafraichirPanneauDev();
       }
 
       function devGemmes(sens) {
@@ -11919,7 +11941,9 @@
           0, permanentData.gems + REGLAGES_DEV.gemmes.v * sens);
         savePermanentData();
         updateHubDisplay();
-        messageDev((sens > 0 ? "+" : "-") + REGLAGES_DEV.gemmes.v + " gemmes");
+        messageDev(
+          (sens > 0 ? "+" : "-") + REGLAGES_DEV.gemmes.v + " gemmes (hub)");
+        rafraichirPanneauDev();
       }
 
       function initRaccourcisDev() {
