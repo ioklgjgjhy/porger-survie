@@ -1907,6 +1907,19 @@
         animation-play-state: paused !important;
       }
 
+      /* Safari affiche des fleches haut/bas dans les champs numeriques,
+         collees au bouton + : on cliquait dessus sans rien appliquer */
+      #panneauDev input[type="number"]::-webkit-outer-spin-button,
+      #panneauDev input[type="number"]::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        appearance: none;
+        margin: 0;
+      }
+      #panneauDev input[type="number"] {
+        -moz-appearance: textfield;
+        appearance: textfield;
+      }
+
       @keyframes monteeValeur {
         0% { transform: translateY(6px) scale(.85); opacity: 0; }
         18% { transform: translateY(0) scale(1.08); opacity: 1; }
@@ -11802,22 +11815,23 @@
         // --- Reglage : moins, valeur, plus ---
         const reglage = (cle, couleur, actionMoins, actionPlus) => {
           const r = REGLAGES_DEV[cle];
-          const petitBouton = (contenu, onclick) =>
-            "<button onclick='" + onclick + "' style='width:30px;height:30px;" +
-            "border-radius:8px;border:1px solid rgba(255,255,255,.18);" +
-            "background:rgba(255,255,255,.07);color:#e8e8f0;font-size:15px;" +
-            "cursor:pointer;padding:0;display:flex;align-items:center;" +
-            "justify-content:center;flex-shrink:0'>" + contenu + "</button>";
+          const petitBouton = (contenu, onclick, teinte) =>
+            "<button onclick='" + onclick + "' style='width:38px;height:34px;" +
+            "border-radius:9px;border:1px solid " + teinte + ";" +
+            "background:" + teinte + "22;color:" + teinte + ";font-size:18px;" +
+            "font-weight:bold;cursor:pointer;padding:0;display:flex;" +
+            "align-items:center;justify-content:center;flex-shrink:0'>" +
+            contenu + "</button>";
 
           return (
-            "<div style='display:flex;align-items:center;gap:6px;flex-shrink:0'>" +
-            petitBouton("\u2212", actionMoins) +
+            "<div style='display:flex;align-items:center;gap:9px;flex-shrink:0'>" +
+            petitBouton("\u2212", actionMoins, couleur) +
             "<input id='champ_" + cle + "' type='number' value='" + r.v + "' " +
             "onchange='saisirDev(\"" + cle + "\",this.value)' " +
             "style='width:74px;padding:6px 4px;text-align:center;border-radius:8px;" +
             "border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.38);" +
             "color:#fff;font-size:13px;font-weight:600'>" +
-            petitBouton("+", actionPlus) +
+            petitBouton("+", actionPlus, couleur) +
             "</div>"
           );
         };
