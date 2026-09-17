@@ -7176,6 +7176,25 @@
       // Compétences actives (à acheter et utiliser avec une touche)
       const ACTIVE_SKILLS = [
         {
+          id: "robot",
+          icon: "\ud83e\udd16",
+          name: "Diriger le robot",
+          desc: "Envoie le robot à l'endroit cliqué. Aucune touche par défaut : assigne-la si tu veux.",
+          basePrice: 0,
+          priceMultiplier: 1,
+          requiredLevel: 1,
+          cooldown: 0,
+          defaultKey: "", // volontairement non assignee
+          besoinRobot: true,
+          effect: () => {
+            if (!robot) {
+              messageRobot("Achète d'abord le robot (touche T)");
+              return;
+            }
+            basculerOrdreRobot();
+          },
+        },
+        {
           id: "bomb",
           icon: "💣",
           name: "Bombe",
@@ -8921,10 +8940,12 @@
       function ouvrirFiltreLoot() {
         afficherFiltreLoot();
         document.getElementById("filtreLootEcran").style.display = "flex";
+        if (typeof majPause === "function") majPause();
       }
 
       function fermerFiltreLoot() {
         document.getElementById("filtreLootEcran").style.display = "none";
+        if (typeof majPause === "function") majPause();
       }
 
       function afficherFiltreLoot() {
@@ -9627,6 +9648,15 @@
 
       // Attribue un pseudo a la premiere connexion :
       // d'abord le nom du compte Google, sinon Utilisateur1, 2, 3...
+      // La competence robot est disponible sans achat : elle depend
+      // seulement de la possession du robot sur le terrain
+      function assurerCompetenceRobot() {
+        if (!ownedActiveSkills) return;
+        if (!ownedActiveSkills.robot) {
+          ownedActiveSkills.robot = { level: 1, key: "" };
+        }
+      }
+
       // Pseudo par defaut : Utilisateur1, puis 2, 3... jusqu'a un libre.
       // Le joueur est invite a le personnaliser apres sa partie.
       async function assurerPseudo() {
@@ -9794,7 +9824,7 @@
       // ====== RAFRAICHISSEMENT AUTOMATIQUE ======
       // Tant que le classement est ouvert, on le recharge regulierement
       // pour voir arriver les scores des autres sans recharger la page.
-      const VERSION_JEU = "1.14";
+      const VERSION_JEU = "1.15";
       let minuteurClassement = null;
       let replayOuvert = false;
       const DELAI_RAFRAICHISSEMENT = 15000;
@@ -11696,16 +11726,19 @@
         let f = document.getElementById("panneauDev");
         if (f && f.style.display === "flex") {
           f.style.display = "none";
+          majPause();
           return;
         }
         fermerAutresInterfaces("dev");
         rendrePanneauDev();
         document.getElementById("panneauDev").style.display = "flex";
+        majPause();
       }
 
       function fermerPanneauDev() {
         const f = document.getElementById("panneauDev");
         if (f) f.style.display = "none";
+        if (typeof majPause === "function") majPause();
       }
 
       function rendrePanneauDev() {
@@ -12454,12 +12487,14 @@
         document.getElementById("supportApercu").innerHTML = "";
         f.style.display = "flex";
         initCollageSupport();
+        if (typeof majPause === "function") majPause();
         document.getElementById("supportTexte").focus();
       }
 
       function fermerFormulaireSupport() {
         document.getElementById("ecranSupport").style.display = "none";
         captureJointe = null;
+        if (typeof majPause === "function") majPause();
       }
 
       // Lecture d'une capture, depuis un fichier, un collage ou un glisser
@@ -12892,7 +12927,25 @@
           pauseMenuOpen = false;
           pauseMenu.style.display = "none";
         }
-        gamePaused = shopOpen || combinedSkillShopOpen || pauseMenuOpen;
+        majPause();
+      }
+
+      // Une seule source de verite : toute fenetre ouverte met en pause
+      function majPause() {
+        const ouvert = (id) => {
+          const el = document.getElementById(id);
+          return !!el && el.style.display !== "none" && el.style.display !== "";
+        };
+        gamePaused =
+          shopOpen ||
+          combinedSkillShopOpen ||
+          pauseMenuOpen ||
+          ouvert("panneauDev") ||
+          ouvert("infoRobot") ||
+          ouvert("ecranSupport") ||
+          ouvert("filtreLootEcran") ||
+          ouvert("equipmentScreen") ||
+          ouvert("turretUpgradeMenu");
       }
 
       function getItemPrice(item) {
@@ -14126,7 +14179,10 @@
           "position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:9600;" +
           "display:flex;align-items:center;justify-content:center;padding:18px";
         f.onclick = (e) => {
-          if (e.target === f) f.remove();
+          if (e.target === f) {
+            f.remove();
+            majPause();
+          }
         };
         const possede = robot !== null;
         f.innerHTML =
@@ -14135,7 +14191,7 @@
           "<div style='display:flex;align-items:center;gap:11px;margin-bottom:14px'>" +
           "<span style='font-size:26px'>\ud83e\udd16</span>" +
           "<h2 style='color:#5dade2;font-size:19px;margin:0;flex:1'>Robot allié</h2>" +
-          "<button onclick='document.getElementById(\"infoRobot\").remove()' " +
+          "<button onclick='document.getElementById(\"infoRobot\").remove();majPause()' " +
           "style='background:none;border:none;color:#888;font-size:24px;" +
           "cursor:pointer;line-height:1'>&times;</button></div>" +
 
@@ -14169,6 +14225,7 @@
               "Tu as " + Math.round(playerMoney) + " $</p>") +
           "</div>";
         document.body.appendChild(f);
+        majPause();
       }
 
       function acheterRobot() {
@@ -14210,6 +14267,10 @@
           cadence: 700,
           dernierTir: 0,
         };
+        assurerCompetenceRobot();
+        if (typeof updateActiveSkillsBar === "function") {
+          updateActiveSkillsBar();
+        }
         majBoutonRobot();
       }
 
@@ -14285,13 +14346,20 @@
       }
 
       function basculerModeContinu(e) {
-        e.stopPropagation();
-        ordreRobotContinu = !ordreRobotContinu;
-        if (ordreRobotContinu && !modeOrdreRobot) {
-          modeOrdreRobot = true;
-          gameCanvas.style.cursor = "crosshair";
+        if (e) {
+          e.stopPropagation();
+          e.preventDefault();
         }
+        ordreRobotContinu = !ordreRobotContinu;
+        // En mode continu, le mode direction reste actif en permanence
+        modeOrdreRobot = ordreRobotContinu;
+        gameCanvas.style.cursor = ordreRobotContinu ? "crosshair" : "";
         majBoutonRobot();
+        messageRobot(
+          ordreRobotContinu
+            ? "Direction permanente activée"
+            : "Direction permanente désactivée"
+        );
       }
 
       function marquerDestination(x, y) {
