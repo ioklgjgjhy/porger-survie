@@ -9794,7 +9794,7 @@
       // ====== RAFRAICHISSEMENT AUTOMATIQUE ======
       // Tant que le classement est ouvert, on le recharge regulierement
       // pour voir arriver les scores des autres sans recharger la page.
-      const VERSION_JEU = "1.12";
+      const VERSION_JEU = "1.13";
       let minuteurClassement = null;
       let replayOuvert = false;
       const DELAI_RAFRAICHISSEMENT = 15000;
@@ -13534,9 +13534,19 @@
       function updateMoneyDisplay() {
         // Le pic sert de score de richesse en fin de partie
         if (playerMoney > picArgent) picArgent = playerMoney;
-        moneySpan.textContent = playerMoney;
-        if (shopOpen) {
-          shopMoneySpan.textContent = playerMoney;
+        const montant = Math.round(playerMoney);
+        moneySpan.textContent = montant;
+
+        // Tous les compteurs d'argent, pas seulement celui du haut :
+        // la boutique gardait une valeur perimee
+        ["shopMoney", "combinedShopMoney"].forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = montant;
+        });
+
+        // Les prix deviennent accessibles ou non selon le solde
+        if (shopOpen && typeof updateShopDisplay === "function") {
+          updateShopDisplay();
         }
       }
 
