@@ -11889,14 +11889,14 @@
           "cursor:pointer;padding:0;line-height:1'>\u00d7</button></div>" +
 
           titreSection("PROGRESSION") +
-          tuile("\u23e9", "Vagues", "Nombre de vagues à sauter", O,
+          tuile("\ud83c\udf0a", "Vagues", "Nombre de vagues à sauter", O,
             reglage("vagues", O, "devVague(-1)", "devVague(1)")) +
-          tuile("\u2b50", "Niveau", "Nombre de niveaux à gagner", V,
+          tuile("\ud83d\udd31", "Niveau du joueur", "Nombre de niveaux à gagner", V,
             reglage("niveaux", V, "devNiveau(-1)", "devNiveau(1)")) +
 
           // --- Bloc HUB, encadre en jaune ---
           "<div style='border:1px solid rgba(232,197,71,.3);border-radius:16px;" +
-          "padding:11px;margin-top:16px;background:rgba(232,197,71,.04)'>" +
+          "padding:11px;margin-top:14px;background:rgba(232,197,71,.04)'>" +
           "<div style='color:#e8c547;font-size:11px;font-weight:700;" +
           "letter-spacing:1.2px;margin-bottom:9px;display:flex;" +
           "align-items:center;gap:7px'>" +
@@ -11933,21 +11933,41 @@
             reglage("argent", VT, "devArgentPartie(-1)", "devArgentPartie(1)")) +
           "</div>" +
 
-          titreSection("COMBAT") +
-          tuile("\ud83d\udee1\ufe0f", "Invincibilité",
-            invincibiliteDev ? "Tu ne prends aucun dégât" : "Dégâts normaux",
-            invincibiliteDev ? VR : G,
-            interrupteur(invincibiliteDev, "devInvincible()", VR)) +
-          tuile("\ud83d\udca5", "Tout tuer", "Élimine les zombies à l'écran", R,
-            action("Lancer", "devTuerTout()", R)) +
-          tuile("\u2764\ufe0f", "Soin complet", "Remet les PV au maximum", VR,
-            action("Lancer", "devSoin()", VR)) +
+          // --- Bloc COMBAT, encadre en rouge, seulement en partie ---
+          (gameActive
+            ? "<div style='border:1px solid rgba(224,92,82,.3);border-radius:16px;" +
+              "padding:11px;margin-top:14px;background:rgba(224,92,82,.04)'>" +
+              "<div style='color:#e05c52;font-size:11px;font-weight:700;" +
+              "letter-spacing:1.2px;margin-bottom:9px;display:flex;" +
+              "align-items:center;gap:7px'>" +
+              "<span style='font-size:14px'>\ud83e\udde8</span>COMBAT</div>" +
+              tuile("\ud83d\udee1\ufe0f", "Invincibilité",
+                invincibiliteDev ? "Tu ne prends aucun dégât" : "Dégâts normaux",
+                invincibiliteDev ? VR : G,
+                interrupteur(invincibiliteDev, "devInvincible()", VR)) +
+              tuile("\ud83d\udca5", "Tout tuer", "Élimine les zombies à l'écran", R,
+                action("Lancer", "devTuerTout()", R)) +
+              tuile("\u2764\ufe0f", "Soin complet", "Remet les PV au maximum", VR,
+                action("Lancer", "devSoin()", VR)) +
+              "</div>"
+            : "") +
 
-          titreSection("INVENTAIRE") +
-          tuile("\ud83c\udf81", "Tous les items", "Un exemplaire de chaque équipement", VT,
-            action("Obtenir", "devTousLesItems()", VT)) +
-          tuile("\ud83d\uddd1\ufe0f", "Vider l'inventaire", "Garde l'équipement porté", G,
-            action("Vider", "devViderInventaire()", G)) +
+          // --- Inventaire : inutile pendant une partie ---
+          (!gameActive
+            ? "<div style='border:1px solid rgba(46,196,166,.28);border-radius:16px;" +
+              "padding:11px;margin-top:14px;background:rgba(46,196,166,.04)'>" +
+              "<div style='color:#2ec4a6;font-size:11px;font-weight:700;" +
+              "letter-spacing:1.2px;margin-bottom:9px;display:flex;" +
+              "align-items:center;gap:7px'>" +
+              "<span style='font-size:14px'>\ud83c\udf92</span>INVENTAIRE</div>" +
+              tuile("\ud83c\udf81", "Tous les items",
+                "Un exemplaire de chaque équipement", VT,
+                action("Obtenir", "devTousLesItems()", VT)) +
+              tuile("\ud83d\uddd1\ufe0f", "Vider l'inventaire",
+                "Garde l'équipement porté", G,
+                action("Vider", "devViderInventaire()", G)) +
+              "</div>"
+            : "") +
 
           "<div style='color:#5a5a70;font-size:11px;text-align:center;" +
           "margin-top:16px;padding-top:13px;" +
