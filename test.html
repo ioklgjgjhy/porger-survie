@@ -1900,6 +1900,13 @@
         pointer-events: none;
       }
 
+      /* En pause, les sprites se figent aussi : sans cela les zombies
+         continuaient leur animation de marche sur place */
+      body.jeu-en-pause .enemy,
+      body.jeu-en-pause .robot-allie {
+        animation-play-state: paused !important;
+      }
+
       @keyframes monteeValeur {
         0% { transform: translateY(6px) scale(.85); opacity: 0; }
         18% { transform: translateY(0) scale(1.08); opacity: 1; }
@@ -11593,10 +11600,12 @@
         bulle.textContent =
           (ecart >= 0 ? "+" : "") + ecart.toLocaleString("fr-FR");
 
-        if (el) {
+        if (el && el.getBoundingClientRect().width > 0) {
           const r = el.getBoundingClientRect();
-          bulle.style.left = r.right + 14 + "px";
-          bulle.style.top = r.top - 4 + "px";
+          // Sous le compteur plutot qu'a cote : a droite, la bulle
+          // tombait sur la ligne voisine
+          bulle.style.left = r.left + "px";
+          bulle.style.top = r.bottom + 6 + "px";
           // Le compteur lui-meme clignote
           const ancienFond = el.style.background;
           el.style.transition = "background .2s";
@@ -11766,9 +11775,8 @@
           f = document.createElement("div");
           f.id = "panneauDev";
           f.style.cssText =
-            "position:fixed;inset:0;background:rgba(6,6,16,.42);z-index:99998;" +
-            "display:none;align-items:center;justify-content:center;padding:16px;" +
-            "backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)";
+            "position:fixed;inset:0;background:rgba(6,6,16,.5);z-index:99998;" +
+            "display:none;align-items:center;justify-content:center;padding:16px";
           f.addEventListener("click", (e) => {
             if (e.target === f) fermerPanneauDev();
           });
@@ -11843,10 +11851,8 @@
               VT = "#2ec4a6", R = "#e05c52", VR = "#3fc47c", G = "#8b8b9e";
 
         f.innerHTML =
-          "<div style='background:rgba(18,16,38,.72);" +
-          "backdrop-filter:blur(26px) saturate(1.7);" +
-          "-webkit-backdrop-filter:blur(26px) saturate(1.7);" +
-          "border:1px solid rgba(190,150,235,.35);" +
+          "<div style='background:rgba(18,16,38,.9);" +
+          "border:1px solid rgba(190,150,235,.4);" +
           "border-radius:22px;padding:20px;max-width:620px;width:100%;" +
           "max-height:90vh;overflow-y:auto;" +
           "box-shadow:0 22px 70px rgba(0,0,0,.65)," +
@@ -12874,6 +12880,10 @@
         musicEnabled = !musicEnabled;
         musicToggle.textContent = musicEnabled ? "ON" : "OFF";
         musicToggle.className = "audio-toggle " + (musicEnabled ? "on" : "off");
+        // On enregistre : le reglage doit survivre au rechargement
+        permanentData.settings = permanentData.settings || {};
+        permanentData.settings.music = musicEnabled;
+        savePermanentData();
         if (musicEnabled && gameActive) {
           startBackgroundMusic();
         } else {
@@ -12885,6 +12895,9 @@
         sfxEnabled = !sfxEnabled;
         sfxToggle.textContent = sfxEnabled ? "ON" : "OFF";
         sfxToggle.className = "audio-toggle " + (sfxEnabled ? "on" : "off");
+        permanentData.settings = permanentData.settings || {};
+        permanentData.settings.sound = sfxEnabled;
+        savePermanentData();
       });
 
       musicVolumeSlider.addEventListener("input", (e) => {
@@ -12892,6 +12905,10 @@
         updateMusicVolume();
         const valueDisplay = document.getElementById("musicVolumeValue");
         if (valueDisplay) valueDisplay.textContent = e.target.value + "%";
+        permanentData.settings = permanentData.settings || {};
+        peindreCurseur(e.target);
+        permanentData.settings.musicVolume = parseInt(e.target.value, 10);
+        savePermanentData();
         // Mettre à jour le background du slider
         e.target.style.background = `linear-gradient(90deg, #00b894 0%, #00b894 ${e.target.value}%, #333 ${e.target.value}%, #333 100%)`;
       });
@@ -12900,9 +12917,21 @@
         sfxVolume = e.target.value / 100;
         const valueDisplay = document.getElementById("sfxVolumeValue");
         if (valueDisplay) valueDisplay.textContent = e.target.value + "%";
-        // Mettre à jour le background du slider
-        e.target.style.background = `linear-gradient(90deg, #00b894 0%, #00b894 ${e.target.value}%, #333 ${e.target.value}%, #333 100%)`;
+        peindreCurseur(e.target);
+        permanentData.settings = permanentData.settings || {};
+        permanentData.settings.sfxVolume = parseInt(e.target.value, 10);
+        savePermanentData();
       });
+
+      // La partie remplie du curseur doit suivre sa valeur :
+      // seul le curseur des bruitages le faisait, d'ou le decalage
+      function peindreCurseur(el) {
+        if (!el) return;
+        const v = el.value;
+        el.style.background =
+          "linear-gradient(90deg, #00b894 0%, #00b894 " + v + "%, " +
+          "#333 " + v + "%, #333 100%)";
+      }
 
       // Initialiser les dimensions
       updateCanvasSize();
@@ -12956,10 +12985,49 @@
       });
 
       // Fonction toggle menu pause
+      // Remet les boutons et curseurs audio en accord avec l'etat reel.
+      // Sans cela, couper le son dans les reglages laissait le menu
+      // pause afficher ON, et les curseurs etaient desynchronises.
+      function synchroniserAudioPause() {
+        const r = permanentData.settings || {};
+        musicEnabled = r.music !== false;
+        sfxEnabled = r.sound !== false;
+
+        if (musicToggle) {
+          musicToggle.textContent = musicEnabled ? "ON" : "OFF";
+          musicToggle.className = "audio-toggle " + (musicEnabled ? "on" : "off");
+        }
+        if (sfxToggle) {
+          sfxToggle.textContent = sfxEnabled ? "ON" : "OFF";
+          sfxToggle.className = "audio-toggle " + (sfxEnabled ? "on" : "off");
+        }
+
+        const vm = typeof r.musicVolume === "number" ? r.musicVolume : 50;
+        const vs = typeof r.sfxVolume === "number" ? r.sfxVolume : 70;
+        if (musicVolumeSlider) {
+          musicVolumeSlider.value = vm;
+          const t = document.getElementById("musicVolumeValue");
+          if (t) t.textContent = vm + "%";
+        }
+        if (sfxVolumeSlider) {
+          sfxVolumeSlider.value = vs;
+          const t = document.getElementById("sfxVolumeValue");
+          if (t) t.textContent = vs + "%";
+        }
+        musicVolume = vm / 100;
+        sfxVolume = vs / 100;
+        if (typeof updateMusicVolume === "function") updateMusicVolume();
+        peindreCurseur(musicVolumeSlider);
+        peindreCurseur(sfxVolumeSlider);
+      }
+
       function togglePauseMenu() {
         const ouvrir = !pauseMenuOpen;
         if (ouvrir) fermerAutresInterfaces("pause");
         pauseMenuOpen = ouvrir;
+        if (ouvrir && typeof synchroniserAudioPause === "function") {
+          synchroniserAudioPause();
+        }
         pauseMenu.style.display = pauseMenuOpen ? "flex" : "none";
         gamePaused = pauseMenuOpen || shopOpen || combinedSkillShopOpen;
       }
@@ -12996,6 +13064,7 @@
 
       // Une seule source de verite : toute fenetre ouverte met en pause
       function majPause() {
+        // Applique aussi l'arret des animations, gere plus bas
         const ouvert = (id) => {
           const el = document.getElementById(id);
           return !!el && el.style.display !== "none" && el.style.display !== "";
@@ -13010,6 +13079,8 @@
           ouvert("filtreLootEcran") ||
           ouvert("equipmentScreen") ||
           ouvert("turretUpgradeMenu");
+
+        document.body.classList.toggle("jeu-en-pause", gamePaused);
       }
 
       function getItemPrice(item) {
