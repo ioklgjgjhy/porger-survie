@@ -11720,9 +11720,9 @@
           f = document.createElement("div");
           f.id = "panneauDev";
           f.style.cssText =
-            "position:fixed;inset:0;background:rgba(6,6,16,.86);z-index:99998;" +
+            "position:fixed;inset:0;background:rgba(6,6,16,.42);z-index:99998;" +
             "display:none;align-items:center;justify-content:center;padding:16px;" +
-            "backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)";
+            "backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)";
           f.addEventListener("click", (e) => {
             if (e.target === f) fermerPanneauDev();
           });
@@ -11732,8 +11732,10 @@
         // --- Une tuile : icone, titre, description, puis son controle ---
         const tuile = (icone, titre, detail, couleur, controle) =>
           "<div style='display:flex;align-items:center;gap:13px;padding:13px 15px;" +
-          "background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.09);" +
-          "border-radius:14px;margin-bottom:9px'>" +
+          "background:linear-gradient(145deg,rgba(255,255,255,.075)," +
+          "rgba(255,255,255,.03));border:1px solid rgba(255,255,255,.1);" +
+          "border-radius:15px;margin-bottom:9px;" +
+          "box-shadow:inset 0 1px 0 rgba(255,255,255,.08)'>" +
           "<div style='width:38px;height:38px;border-radius:50%;flex-shrink:0;" +
           "background:" + couleur + "26;border:1px solid " + couleur + "80;" +
           "display:flex;align-items:center;justify-content:center;font-size:17px'>" +
@@ -11795,9 +11797,14 @@
               VT = "#2ec4a6", R = "#e05c52", VR = "#3fc47c", G = "#8b8b9e";
 
         f.innerHTML =
-          "<div style='background:#0e0e1f;border:1px solid rgba(168,111,214,.45);" +
-          "border-radius:20px;padding:20px;max-width:620px;width:100%;" +
-          "max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.7)'>" +
+          "<div style='background:rgba(18,16,38,.72);" +
+          "backdrop-filter:blur(26px) saturate(1.7);" +
+          "-webkit-backdrop-filter:blur(26px) saturate(1.7);" +
+          "border:1px solid rgba(190,150,235,.35);" +
+          "border-radius:22px;padding:20px;max-width:620px;width:100%;" +
+          "max-height:90vh;overflow-y:auto;" +
+          "box-shadow:0 22px 70px rgba(0,0,0,.65)," +
+          "inset 0 1px 0 rgba(255,255,255,.14)'>" +
 
           // En-tete
           "<div style='display:flex;align-items:center;gap:11px;" +
