@@ -6875,7 +6875,7 @@
         if (placingTurret) {
           // Activer le mode placement
           turretPlacementOverlay.classList.add("active");
-          gamePaused = true;
+          majPause();
 
           // Afficher le cercle de placement autour du joueur
           const size = turretPlacementRange * 2;
@@ -6898,7 +6898,7 @@
         placingTurret = false;
         turretPlacementOverlay.classList.remove("active");
         turretPreviewEl.style.display = "none";
-        gamePaused = shopOpen || combinedSkillShopOpen || pauseMenuOpen;
+        majPause();
 
         const turretSlot = document.getElementById("turretSlot");
         if (turretSlot) turretSlot.classList.remove("placing");
@@ -7064,7 +7064,6 @@
       function openTurretUpgradeMenu(turret) {
         selectedTurretForUpgrade = turret;
         turretUpgradeMenuOpen = true;
-        gamePaused = true;
 
         // Highlight la tourelle sélectionnée
         turrets.forEach((t) => t.element.classList.remove("selected"));
@@ -7072,6 +7071,7 @@
 
         updateTurretUpgradeMenu();
         document.getElementById("turretUpgradeMenu").style.display = "block";
+        majPause();
       }
 
       // Mettre à jour le menu d'amélioration
@@ -7144,8 +7144,8 @@
       // Fermer le menu d'amélioration
       function closeTurretUpgradeMenu() {
         turretUpgradeMenuOpen = false;
-        gamePaused = shopOpen || combinedSkillShopOpen || pauseMenuOpen;
         document.getElementById("turretUpgradeMenu").style.display = "none";
+        majPause();
 
         if (selectedTurretForUpgrade) {
           selectedTurretForUpgrade.element.classList.remove("selected");
@@ -13222,7 +13222,7 @@
           synchroniserAudioPause();
         }
         pauseMenu.style.display = pauseMenuOpen ? "flex" : "none";
-        gamePaused = pauseMenuOpen || shopOpen || combinedSkillShopOpen;
+        majPause();
       }
 
       // Fonctions de la boutique
@@ -13231,7 +13231,7 @@
         if (ouvrir) fermerAutresInterfaces("boutique");
         shopOpen = ouvrir;
         shopMenu.style.display = shopOpen ? "block" : "none";
-        gamePaused = shopOpen || combinedSkillShopOpen || pauseMenuOpen;
+        majPause();
         if (shopOpen) {
           renderShop();
         }
@@ -13266,6 +13266,7 @@
           shopOpen ||
           combinedSkillShopOpen ||
           pauseMenuOpen ||
+          placingTurret ||
           ouvert("panneauDev") ||
           ouvert("ecranSupport") ||
           ouvert("filtreLootEcran") ||
@@ -13389,7 +13390,7 @@
         combinedSkillShop.style.display = combinedSkillShopOpen
           ? "block"
           : "none";
-        gamePaused = combinedSkillShopOpen || shopOpen || pauseMenuOpen;
+        majPause();
         if (combinedSkillShopOpen) {
           renderCombinedSkillShop();
         }
