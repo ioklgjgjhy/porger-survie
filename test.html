@@ -10035,7 +10035,7 @@
       // Tant que le classement est ouvert, on le recharge regulierement
       // pour voir arriver les scores des autres sans recharger la page.
       // Numerotation : +1 par lot de travail livre, pas par test
-      const VERSION_JEU = "1.0";
+      const VERSION_JEU = "1.1";
       let minuteurClassement = null;
       let replayOuvert = false;
       const DELAI_RAFRAICHISSEMENT = 15000;
@@ -14440,7 +14440,7 @@
           "position:fixed;top:78px;left:50%;transform:translateX(-50%);" +
           "background:rgba(20,40,60,.95);border:1px solid #3498db;" +
           "border-radius:10px;padding:10px 18px;color:#cfe5f5;font-size:13px;" +
-          "z-index:9400;pointer-events:none";
+          "z-index:9700;pointer-events:none";
         m.textContent = texte;
         document.body.appendChild(m);
         setTimeout(() => {
@@ -14510,6 +14510,7 @@
       function ouvrirInfoRobot() {
         const a = document.getElementById("annonceRobot");
         if (a) a.remove();
+        if (document.getElementById("infoRobot")) return;
 
         const f = document.createElement("div");
         f.id = "infoRobot";
@@ -14523,6 +14524,7 @@
           }
         };
         const possede = robot !== null;
+        const manque = Math.max(0, ROBOT_PRIX - Math.floor(playerMoney));
         f.innerHTML =
           "<div style='background:#0f1c2e;border:2px solid #3498db;" +
           "border-radius:16px;padding:22px;max-width:420px;width:100%'>" +
@@ -14554,10 +14556,19 @@
           (possede
             ? "<div style='text-align:center;color:#2ecc71;font-size:14px;" +
               "font-weight:bold'>\u2713 Robot déployé</div>"
+            : manque > 0
+            ? "<button disabled style='width:100%;padding:13px;background:#3a3f4a;" +
+              "border:1px solid #555;border-radius:10px;color:#9aa;font-weight:bold;" +
+              "font-size:15px;cursor:not-allowed'>" +
+              "Déployer \u00b7 " + ROBOT_PRIX + " $</button>" +
+              "<p style='color:#e67e22;font-size:12.5px;text-align:center;" +
+              "font-weight:bold;margin:8px 0 0'>Pas assez d'argent \u00b7 il te manque " +
+              manque + " $</p>" +
+              "<p style='color:#777;font-size:11px;text-align:center;margin:4px 0 0'>" +
+              "Tu as " + Math.round(playerMoney) + " $</p>"
             : "<button onclick='acheterRobot()' style='width:100%;padding:13px;" +
-              "background:" + (playerMoney >= ROBOT_PRIX ? "#3498db" : "#555") + ";" +
-              "border:none;border-radius:10px;color:#fff;font-weight:bold;" +
-              "font-size:15px;cursor:pointer'>" +
+              "background:#3498db;border:none;border-radius:10px;color:#fff;" +
+              "font-weight:bold;font-size:15px;cursor:pointer'>" +
               "Déployer \u00b7 " + ROBOT_PRIX + " $</button>" +
               "<p style='color:#777;font-size:11px;text-align:center;margin:8px 0 0'>" +
               "Tu as " + Math.round(playerMoney) + " $</p>") +
