@@ -1900,6 +1900,244 @@
         pointer-events: none;
       }
 
+      /* En pause, les sprites se figent aussi : sans cela les zombies
+         continuaient leur animation de marche sur place */
+      body.jeu-en-pause .enemy,
+      body.jeu-en-pause .robot-allie {
+        animation-play-state: paused !important;
+      }
+
+      /* Safari affiche des fleches haut/bas dans les champs numeriques,
+         collees au bouton + : on cliquait dessus sans rien appliquer */
+      #panneauDev input[type="number"]::-webkit-outer-spin-button,
+      #panneauDev input[type="number"]::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        appearance: none;
+        margin: 0;
+      }
+      #panneauDev input[type="number"] {
+        -moz-appearance: textfield;
+        appearance: textfield;
+      }
+
+      /* Panneau developpeur, version verre : pas de backdrop-filter,
+         retire volontairement (illisible) */
+      .pdv-vitre {
+        position: relative;
+        background: rgba(24, 22, 48, 0.72);
+        border: 1px solid rgba(255, 255, 255, 0.23);
+        border-radius: 30px;
+        padding: 22px;
+        max-width: 660px;
+        width: 100%;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.62),
+          inset 0 1px 0 rgba(255, 255, 255, 0.18);
+      }
+
+      /* Reflet diagonal sur toute la vitre */
+      .pdv-vitre::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: 30px;
+        background: linear-gradient(
+          138deg,
+          rgba(255, 255, 255, 0.11) 0%,
+          rgba(255, 255, 255, 0.03) 34%,
+          rgba(255, 255, 255, 0) 62%
+        );
+        pointer-events: none;
+      }
+
+      /* Lisere lumineux sur le bord haut */
+      .pdv-vitre::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 12%;
+        right: 12%;
+        height: 1px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(255, 255, 255, 0.55),
+          transparent
+        );
+        pointer-events: none;
+      }
+
+      /* Bloc teinte */
+      .pdv-bloc {
+        position: relative;
+        border-radius: 20px;
+        padding: 13px;
+        margin-top: 16px;
+        overflow: hidden;
+      }
+      .pdv-bloc::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 52%;
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.1),
+          rgba(255, 255, 255, 0)
+        );
+        pointer-events: none;
+      }
+
+      .pdv-entete {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 11px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 1.2px;
+        position: relative;
+      }
+      .pdv-entete .pdv-sous {
+        font-weight: 400;
+        letter-spacing: 0;
+        opacity: 0.68;
+      }
+
+      /* Tuile de verre */
+      .pdv-tuile {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 13px;
+        padding: 13px 15px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.17);
+        border-radius: 15px;
+        margin-bottom: 9px;
+        overflow: hidden;
+      }
+      .pdv-tuile::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 50%;
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.09),
+          rgba(255, 255, 255, 0)
+        );
+        pointer-events: none;
+      }
+      .pdv-tuile > * {
+        position: relative;
+      }
+
+      /* Pastille en relief avec eclat */
+      .pdv-pastille {
+        position: relative;
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 17px;
+        flex-shrink: 0;
+      }
+      .pdv-pastille::after {
+        content: "";
+        position: absolute;
+        top: 4px;
+        left: 5px;
+        right: 5px;
+        height: 36%;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.28);
+        pointer-events: none;
+      }
+
+      .pdv-nom {
+        color: #fafaff;
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .pdv-detail {
+        color: #c4c4d6;
+        font-size: 11.5px;
+        margin-top: 2px;
+      }
+
+      .pdv-btn-pm {
+        width: 38px;
+        height: 34px;
+        border-radius: 9px;
+        font-size: 18px;
+        font-weight: bold;
+        cursor: pointer;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        color: #fff;
+      }
+      .pdv-champ {
+        width: 78px;
+        padding: 7px 4px;
+        text-align: center;
+        border-radius: 9px;
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        background: rgba(0, 0, 0, 0.42);
+        color: #fff;
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      /* Interrupteur avec reflet sur la bille */
+      .pdv-switch {
+        width: 56px;
+        height: 31px;
+        border-radius: 16px;
+        cursor: pointer;
+        padding: 0;
+        position: relative;
+        flex-shrink: 0;
+        transition: background 0.25s, border-color 0.25s;
+      }
+      .pdv-bille {
+        position: absolute;
+        top: 2px;
+        width: 25px;
+        height: 25px;
+        border-radius: 50%;
+        background: #fff;
+        transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+      }
+      .pdv-bille::after {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 4px;
+        right: 4px;
+        height: 38%;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.6);
+      }
+
+      @keyframes monteeValeur {
+        0% { transform: translateY(6px) scale(.85); opacity: 0; }
+        18% { transform: translateY(0) scale(1.08); opacity: 1; }
+        70% { transform: translateY(-10px) scale(1); opacity: 1; }
+        100% { transform: translateY(-30px) scale(1); opacity: 0; }
+      }
+
       @keyframes monteeSoin {
         0% { transform: translateY(0); opacity: 1; }
         100% { transform: translateY(-22px); opacity: 0; }
@@ -9797,7 +10035,7 @@
       // Tant que le classement est ouvert, on le recharge regulierement
       // pour voir arriver les scores des autres sans recharger la page.
       // Numerotation : +1 par lot de travail livre, pas par test
-      const VERSION_JEU = "1.0";
+      const VERSION_JEU = "1.1";
       let minuteurClassement = null;
       let replayOuvert = false;
       const DELAI_RAFRAICHISSEMENT = 15000;
@@ -11570,12 +11808,53 @@
           " pièces, " + (sens > 0 ? "+" : "-") + REGLAGES_DEV.gemmes.v + " gemmes");
       }
 
+      // Montre clairement quel compteur a change, et de combien.
+      // Sans cela, ajouter 1000 a un solde de 500 000 passait inapercu.
+      function signalerChangement(idElement, avant, apres, couleur) {
+        const el = document.getElementById(idElement);
+        const ecart = apres - avant;
+
+        // Bulle flottante avec l'ecart
+        const bulle = document.createElement("div");
+        bulle.style.cssText =
+          "position:fixed;z-index:99999;padding:7px 14px;border-radius:10px;" +
+          "background:" + couleur + ";color:#fff;font-weight:bold;font-size:15px;" +
+          "box-shadow:0 5px 18px rgba(0,0,0,.5);pointer-events:none;" +
+          "animation:monteeValeur 1.6s ease-out forwards";
+        bulle.textContent =
+          (ecart >= 0 ? "+" : "") + ecart.toLocaleString("fr-FR");
+
+        if (el && el.getBoundingClientRect().width > 0) {
+          const r = el.getBoundingClientRect();
+          // Sous le compteur plutot qu'a cote : a droite, la bulle
+          // tombait sur la ligne voisine
+          bulle.style.left = r.left + "px";
+          bulle.style.top = r.bottom + 6 + "px";
+          // Le compteur lui-meme clignote
+          const ancienFond = el.style.background;
+          el.style.transition = "background .2s";
+          el.style.background = couleur;
+          setTimeout(() => {
+            el.style.background = ancienFond || "";
+          }, 550);
+        } else {
+          bulle.style.left = "50%";
+          bulle.style.top = "120px";
+          bulle.style.transform = "translateX(-50%)";
+        }
+        document.body.appendChild(bulle);
+        setTimeout(() => bulle.remove(), 1700);
+      }
+
       function devArgentPartie(sens) {
         if (!gameActive) {
           return messageDev("Aucune partie en cours — lance une partie");
         }
+        const avant = Math.round(playerMoney);
         playerMoney = Math.max(0, playerMoney + REGLAGES_DEV.argent.v * sens);
         if (typeof updateMoneyDisplay === "function") updateMoneyDisplay();
+        // Flash sur le compteur en jeu, pour voir ou l'argent est alle
+        signalerChangement("money", avant, Math.round(playerMoney), "#16a085");
         messageDev(
           (sens > 0 ? "+" : "-") + REGLAGES_DEV.argent.v +
           " $ en jeu \u00b7 total " + Math.round(playerMoney) + " $"
@@ -11720,151 +11999,127 @@
           f = document.createElement("div");
           f.id = "panneauDev";
           f.style.cssText =
-            "position:fixed;inset:0;background:rgba(6,6,16,.42);z-index:99998;" +
-            "display:none;align-items:center;justify-content:center;padding:16px;" +
-            "backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)";
+            "position:fixed;inset:0;background:rgba(6,6,16,.5);z-index:99998;" +
+            "display:none;align-items:center;justify-content:center;padding:16px";
           f.addEventListener("click", (e) => {
             if (e.target === f) fermerPanneauDev();
           });
           document.body.appendChild(f);
         }
 
-        // --- Une tuile : icone, titre, description, puis son controle ---
-        const tuile = (icone, titre, detail, couleur, controle) =>
-          "<div style='display:flex;align-items:center;gap:13px;padding:13px 15px;" +
-          "background:linear-gradient(145deg,rgba(255,255,255,.075)," +
-          "rgba(255,255,255,.03));border:1px solid rgba(255,255,255,.1);" +
-          "border-radius:15px;margin-bottom:9px;" +
-          "box-shadow:inset 0 1px 0 rgba(255,255,255,.08)'>" +
-          "<div style='width:38px;height:38px;border-radius:50%;flex-shrink:0;" +
-          "background:" + couleur + "26;border:1px solid " + couleur + "80;" +
-          "display:flex;align-items:center;justify-content:center;font-size:17px'>" +
-          icone + "</div>" +
-          "<div style='flex:1;min-width:0'>" +
-          "<div style='color:#f4f4f8;font-size:14px;font-weight:600'>" + titre + "</div>" +
-          "<div style='color:#8b8b9e;font-size:11.5px;margin-top:2px'>" + detail + "</div>" +
-          "</div>" + controle + "</div>";
+        const VERT = "#34d6b4";
+        const JAUNE = "#f0cd5a";
+        const GRIS = "#8b8b9e";
 
-        // --- Reglage : moins, valeur, plus ---
-        const reglage = (cle, couleur, actionMoins, actionPlus) => {
+        // Reglage : moins, valeur, plus
+        const reglage = (cle, c, actionMoins, actionPlus) => {
           const r = REGLAGES_DEV[cle];
-          const petitBouton = (contenu, onclick) =>
-            "<button onclick='" + onclick + "' style='width:30px;height:30px;" +
-            "border-radius:8px;border:1px solid rgba(255,255,255,.18);" +
-            "background:rgba(255,255,255,.07);color:#e8e8f0;font-size:15px;" +
-            "cursor:pointer;padding:0;display:flex;align-items:center;" +
-            "justify-content:center;flex-shrink:0'>" + contenu + "</button>";
-
+          const bouton = (contenu, onclick) =>
+            "<button onclick='" + onclick + "' class='pdv-btn-pm' " +
+            "style='border:1px solid " + c + ";background:" + c + "33'>" +
+            contenu + "</button>";
           return (
-            "<div style='display:flex;align-items:center;gap:6px;flex-shrink:0'>" +
-            petitBouton("\u2212", actionMoins) +
-            "<input id='champ_" + cle + "' type='number' value='" + r.v + "' " +
-            "onchange='saisirDev(\"" + cle + "\",this.value)' " +
-            "style='width:74px;padding:6px 4px;text-align:center;border-radius:8px;" +
-            "border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.38);" +
-            "color:#fff;font-size:13px;font-weight:600'>" +
-            petitBouton("+", actionPlus) +
+            "<div style='display:flex;align-items:center;gap:9px;flex-shrink:0'>" +
+            bouton("−", actionMoins) +
+            "<input id='champ_" + cle + "' type='number' class='pdv-champ' " +
+            "value='" + r.v + "' onchange='saisirDev(\"" + cle + "\",this.value)'>" +
+            bouton("+", actionPlus) +
             "</div>"
           );
         };
 
-        // --- Bouton d'action ---
-        const action = (libelle, onclick, couleur) =>
-          "<button onclick='" + onclick + "' style='padding:9px 17px;" +
-          "background:" + couleur + "22;border:1px solid " + couleur + ";" +
-          "border-radius:10px;color:" + couleur + ";font-size:13px;" +
-          "font-weight:600;cursor:pointer;flex-shrink:0;white-space:nowrap'>" +
-          libelle + "</button>";
+        const action = (libelle, onclick, c) =>
+          "<button onclick='" + onclick + "' style='padding:9px 18px;" +
+          "background:" + c + "33;border:1px solid " + c + ";border-radius:10px;" +
+          "color:#fff;font-size:13px;font-weight:600;cursor:pointer;" +
+          "flex-shrink:0;white-space:nowrap'>" + libelle + "</button>";
 
-        // --- Interrupteur anime ---
-        const interrupteur = (actif, onclick, couleur) =>
-          "<button onclick='" + onclick + "' style='width:56px;height:31px;" +
-          "border-radius:16px;border:1px solid " +
-          (actif ? couleur : "rgba(255,255,255,.2)") + ";" +
-          "background:" + (actif ? couleur : "rgba(255,255,255,.08)") + ";" +
-          "cursor:pointer;padding:0;position:relative;flex-shrink:0;" +
-          "transition:background .25s,border-color .25s'>" +
-          "<span style='position:absolute;top:2px;left:" +
-          (actif ? "27px" : "2px") + ";width:25px;height:25px;border-radius:50%;" +
-          "background:#fff;transition:left .25s cubic-bezier(.4,0,.2,1);" +
-          "box-shadow:0 2px 5px rgba(0,0,0,.4)'></span></button>";
+        const interrupteur = (actif, onclick, c) =>
+          "<button onclick='" + onclick + "' class='pdv-switch' " +
+          "style='border:1px solid " + (actif ? c : "rgba(255,255,255,.25)") + ";" +
+          "background:" + (actif ? c : "rgba(255,255,255,.1)") + "'>" +
+          "<span class='pdv-bille' style='left:" + (actif ? "27px" : "2px") +
+          "'></span></button>";
 
-        const titreSection = (t) =>
-          "<div style='color:#6f6f85;font-size:10.5px;font-weight:700;" +
-          "letter-spacing:1.3px;margin:16px 0 9px;padding-left:3px'>" + t + "</div>";
+        const tuile = (icone, nom, detail, c, controle) =>
+          "<div class='pdv-tuile'>" +
+          "<div class='pdv-pastille' style='background:" + c + "40;" +
+          "border:1px solid " + c + "99'>" + icone + "</div>" +
+          "<div style='flex:1;min-width:0'>" +
+          "<div class='pdv-nom'>" + nom + "</div>" +
+          "<div class='pdv-detail'>" + detail + "</div></div>" +
+          controle + "</div>";
 
-        const O = "#e8913c", V = "#a86fd6", J = "#e8c547", B = "#4ea8e0",
-              VT = "#2ec4a6", R = "#e05c52", VR = "#3fc47c", G = "#8b8b9e";
+        const bloc = (icone, titre, sous, c, contenu) =>
+          "<div class='pdv-bloc' style='background:" + c + "1f;" +
+          "border:1px solid " + c + "80'>" +
+          "<div class='pdv-entete' style='color:" + c + "'>" +
+          "<span style='font-size:14px'>" + icone + "</span>" + titre +
+          "<span class='pdv-sous'>· " + sous + "</span></div>" +
+          contenu + "</div>";
 
         f.innerHTML =
-          "<div style='background:rgba(18,16,38,.72);" +
-          "backdrop-filter:blur(26px) saturate(1.7);" +
-          "-webkit-backdrop-filter:blur(26px) saturate(1.7);" +
-          "border:1px solid rgba(190,150,235,.35);" +
-          "border-radius:22px;padding:20px;max-width:620px;width:100%;" +
-          "max-height:90vh;overflow-y:auto;" +
-          "box-shadow:0 22px 70px rgba(0,0,0,.65)," +
-          "inset 0 1px 0 rgba(255,255,255,.14)'>" +
+          "<div class='pdv-vitre'>" +
 
           // En-tete
-          "<div style='display:flex;align-items:center;gap:11px;" +
-          "padding-bottom:15px;border-bottom:1px solid rgba(255,255,255,.08)'>" +
-          "<div style='width:34px;height:34px;border-radius:10px;" +
-          "background:rgba(168,111,214,.18);border:1px solid rgba(168,111,214,.5);" +
-          "display:flex;align-items:center;justify-content:center;font-size:16px'>" +
-          "\u2699\ufe0f</div>" +
+          "<div style='display:flex;align-items:center;gap:12px;" +
+          "padding-bottom:16px;border-bottom:1px solid rgba(255,255,255,.12);" +
+          "position:relative'>" +
+          "<div class='pdv-pastille' style='background:rgba(190,140,240,.28);" +
+          "border:1px solid rgba(220,180,255,.7);width:34px;height:34px;" +
+          "font-size:16px'>⚙️</div>" +
           "<div style='flex:1'>" +
-          "<div style='color:#c9a3e8;font-size:16px;font-weight:700'>" +
+          "<div style='color:#f6eeff;font-size:17px;font-weight:700'>" +
           "Panneau développeur</div>" +
-          "<div style='color:#7a7a90;font-size:11px'>Outils de test</div></div>" +
+          "<div style='color:#beb4d7;font-size:11px'>Outils de test</div></div>" +
           "<button onclick='fermerPanneauDev()' style='width:32px;height:32px;" +
-          "border-radius:9px;border:1px solid rgba(255,255,255,.14);" +
-          "background:rgba(255,255,255,.06);color:#aaa;font-size:17px;" +
-          "cursor:pointer;padding:0;line-height:1'>\u00d7</button></div>" +
+          "border-radius:10px;border:1px solid rgba(255,255,255,.24);" +
+          "background:rgba(255,255,255,.1);color:#ebebf5;font-size:17px;" +
+          "cursor:pointer;padding:0;line-height:1'>×</button></div>" +
 
-          titreSection("PROGRESSION") +
-          tuile("\u23e9", "Vagues", "Nombre de vagues à sauter", O,
-            reglage("vagues", O, "devVague(-1)", "devVague(1)")) +
-          tuile("\u2b50", "Niveau", "Nombre de niveaux à gagner", V,
-            reglage("niveaux", V, "devNiveau(-1)", "devNiveau(1)")) +
+          // Bloc 1 : partie en cours, toujours affiche
+          bloc("⚔️", "PARTIE EN COURS",
+            "tout ce qui touche au jeu lancé", VERT,
+            tuile("🌊", "Vagues", "Sauter des vagues", VERT,
+              reglage("vagues", VERT, "devVague(-1)", "devVague(1)")) +
+            tuile("🔱", "Niveau du joueur", "Gagner des niveaux", VERT,
+              reglage("niveaux", VERT, "devNiveau(-1)", "devNiveau(1)")) +
+            tuile("🧾", "Argent de la partie",
+              gameActive
+                ? "Tu as " + Math.round(playerMoney) + " $ · pour la boutique (E)"
+                : "Aucune partie en cours",
+              VERT,
+              reglage("argent", VERT, "devArgentPartie(-1)", "devArgentPartie(1)")) +
+            tuile("🛡️", "Invincibilité",
+              invincibiliteDev ? "Aucun dégât subi" : "Dégâts normaux", VERT,
+              interrupteur(invincibiliteDev, "devInvincible()", VERT)) +
+            tuile("💥", "Tout tuer", "Zombies à l'écran", VERT,
+              action("Lancer", "devTuerTout()", VERT)) +
+            tuile("❤️", "Soin complet", "PV au maximum", VERT,
+              action("Lancer", "devSoin()", VERT))
+          ) +
 
-          titreSection("RESSOURCES DU HUB") +
-          tuile("\ud83d\udcb0", "Pièces",
-            "Hub \u00b7 tu en as " +
-              (permanentData.coins || 0).toLocaleString("fr-FR"), J,
-            reglage("pieces", J, "devPieces(-1)", "devPieces(1)")) +
-          tuile("\ud83d\udc8e", "Gemmes",
-            "Hub \u00b7 tu en as " + (permanentData.gems || 0), B,
-            reglage("gemmes", B, "devGemmes(-1)", "devGemmes(1)")) +
+          // Bloc 2 : hub, toujours affiche
+          bloc("🏠", "HUB", "conservé entre les parties", JAUNE,
+            tuile("💰", "Pièces",
+              "Acheter les armures · tu en as " +
+                (permanentData.coins || 0).toLocaleString("fr-FR"), JAUNE,
+              reglage("pieces", JAUNE, "devPieces(-1)", "devPieces(1)")) +
+            tuile("💎", "Gemmes",
+              "Compétences et tourelles · tu en as " +
+                (permanentData.gems || 0), JAUNE,
+              reglage("gemmes", JAUNE, "devGemmes(-1)", "devGemmes(1)")) +
+            tuile("🎁", "Tous les items", "Un de chaque équipement", JAUNE,
+              action("Obtenir", "devTousLesItems()", JAUNE)) +
+            tuile("🗑️", "Vider l'inventaire",
+              "Garde l'équipement porté", GRIS,
+              action("Vider", "devViderInventaire()", GRIS))
+          ) +
 
-          titreSection("ARGENT DE LA PARTIE") +
-          tuile("\ud83d\udcb5", "Argent en jeu",
-            gameActive
-              ? "Tu as " + Math.round(playerMoney) + " $ dans cette partie"
-              : "Aucune partie en cours",
-            gameActive ? VT : G,
-            reglage("argent", VT, "devArgentPartie(-1)", "devArgentPartie(1)")) +
-
-          titreSection("COMBAT") +
-          tuile("\ud83d\udee1\ufe0f", "Invincibilité",
-            invincibiliteDev ? "Tu ne prends aucun dégât" : "Dégâts normaux",
-            invincibiliteDev ? VR : G,
-            interrupteur(invincibiliteDev, "devInvincible()", VR)) +
-          tuile("\ud83d\udca5", "Tout tuer", "Élimine les zombies à l'écran", R,
-            action("Lancer", "devTuerTout()", R)) +
-          tuile("\u2764\ufe0f", "Soin complet", "Remet les PV au maximum", VR,
-            action("Lancer", "devSoin()", VR)) +
-
-          titreSection("INVENTAIRE") +
-          tuile("\ud83c\udf81", "Tous les items", "Un exemplaire de chaque équipement", VT,
-            action("Obtenir", "devTousLesItems()", VT)) +
-          tuile("\ud83d\uddd1\ufe0f", "Vider l'inventaire", "Garde l'équipement porté", G,
-            action("Vider", "devViderInventaire()", G)) +
-
-          "<div style='color:#5a5a70;font-size:11px;text-align:center;" +
-          "margin-top:16px;padding-top:13px;" +
-          "border-top:1px solid rgba(255,255,255,.06)'>" +
-          "Touche I ou \u2699\ufe0f pour ouvrir et fermer</div></div>";
+          "<div style='color:#8d8da8;font-size:11px;text-align:center;" +
+          "margin-top:18px;padding-top:14px;" +
+          "border-top:1px solid rgba(255,255,255,.1)'>" +
+          "Touche I pour ouvrir et fermer</div></div>";
       }
 
       // Donne un exemplaire de chaque item du jeu, pour pouvoir
@@ -11939,8 +12194,10 @@
       }
 
       function devPieces(sens) {
+        const avant = permanentData.coins;
         permanentData.coins = Math.max(
           0, permanentData.coins + REGLAGES_DEV.pieces.v * sens);
+        signalerChangement("hubCoins", avant, permanentData.coins, "#f1c40f");
         savePermanentData();
         updateHubDisplay();
         messageDev(
@@ -11950,8 +12207,10 @@
       }
 
       function devGemmes(sens) {
+        const avant = permanentData.gems;
         permanentData.gems = Math.max(
           0, permanentData.gems + REGLAGES_DEV.gemmes.v * sens);
+        signalerChangement("hubGems", avant, permanentData.gems, "#3498db");
         savePermanentData();
         updateHubDisplay();
         messageDev(
@@ -12824,6 +13083,10 @@
         musicEnabled = !musicEnabled;
         musicToggle.textContent = musicEnabled ? "ON" : "OFF";
         musicToggle.className = "audio-toggle " + (musicEnabled ? "on" : "off");
+        // On enregistre : le reglage doit survivre au rechargement
+        permanentData.settings = permanentData.settings || {};
+        permanentData.settings.music = musicEnabled;
+        savePermanentData();
         if (musicEnabled && gameActive) {
           startBackgroundMusic();
         } else {
@@ -12835,6 +13098,9 @@
         sfxEnabled = !sfxEnabled;
         sfxToggle.textContent = sfxEnabled ? "ON" : "OFF";
         sfxToggle.className = "audio-toggle " + (sfxEnabled ? "on" : "off");
+        permanentData.settings = permanentData.settings || {};
+        permanentData.settings.sound = sfxEnabled;
+        savePermanentData();
       });
 
       musicVolumeSlider.addEventListener("input", (e) => {
@@ -12842,6 +13108,10 @@
         updateMusicVolume();
         const valueDisplay = document.getElementById("musicVolumeValue");
         if (valueDisplay) valueDisplay.textContent = e.target.value + "%";
+        permanentData.settings = permanentData.settings || {};
+        peindreCurseur(e.target);
+        permanentData.settings.musicVolume = parseInt(e.target.value, 10);
+        savePermanentData();
         // Mettre à jour le background du slider
         e.target.style.background = `linear-gradient(90deg, #00b894 0%, #00b894 ${e.target.value}%, #333 ${e.target.value}%, #333 100%)`;
       });
@@ -12850,9 +13120,21 @@
         sfxVolume = e.target.value / 100;
         const valueDisplay = document.getElementById("sfxVolumeValue");
         if (valueDisplay) valueDisplay.textContent = e.target.value + "%";
-        // Mettre à jour le background du slider
-        e.target.style.background = `linear-gradient(90deg, #00b894 0%, #00b894 ${e.target.value}%, #333 ${e.target.value}%, #333 100%)`;
+        peindreCurseur(e.target);
+        permanentData.settings = permanentData.settings || {};
+        permanentData.settings.sfxVolume = parseInt(e.target.value, 10);
+        savePermanentData();
       });
+
+      // La partie remplie du curseur doit suivre sa valeur :
+      // seul le curseur des bruitages le faisait, d'ou le decalage
+      function peindreCurseur(el) {
+        if (!el) return;
+        const v = el.value;
+        el.style.background =
+          "linear-gradient(90deg, #00b894 0%, #00b894 " + v + "%, " +
+          "#333 " + v + "%, #333 100%)";
+      }
 
       // Initialiser les dimensions
       updateCanvasSize();
@@ -12906,10 +13188,49 @@
       });
 
       // Fonction toggle menu pause
+      // Remet les boutons et curseurs audio en accord avec l'etat reel.
+      // Sans cela, couper le son dans les reglages laissait le menu
+      // pause afficher ON, et les curseurs etaient desynchronises.
+      function synchroniserAudioPause() {
+        const r = permanentData.settings || {};
+        musicEnabled = r.music !== false;
+        sfxEnabled = r.sound !== false;
+
+        if (musicToggle) {
+          musicToggle.textContent = musicEnabled ? "ON" : "OFF";
+          musicToggle.className = "audio-toggle " + (musicEnabled ? "on" : "off");
+        }
+        if (sfxToggle) {
+          sfxToggle.textContent = sfxEnabled ? "ON" : "OFF";
+          sfxToggle.className = "audio-toggle " + (sfxEnabled ? "on" : "off");
+        }
+
+        const vm = typeof r.musicVolume === "number" ? r.musicVolume : 50;
+        const vs = typeof r.sfxVolume === "number" ? r.sfxVolume : 70;
+        if (musicVolumeSlider) {
+          musicVolumeSlider.value = vm;
+          const t = document.getElementById("musicVolumeValue");
+          if (t) t.textContent = vm + "%";
+        }
+        if (sfxVolumeSlider) {
+          sfxVolumeSlider.value = vs;
+          const t = document.getElementById("sfxVolumeValue");
+          if (t) t.textContent = vs + "%";
+        }
+        musicVolume = vm / 100;
+        sfxVolume = vs / 100;
+        if (typeof updateMusicVolume === "function") updateMusicVolume();
+        peindreCurseur(musicVolumeSlider);
+        peindreCurseur(sfxVolumeSlider);
+      }
+
       function togglePauseMenu() {
         const ouvrir = !pauseMenuOpen;
         if (ouvrir) fermerAutresInterfaces("pause");
         pauseMenuOpen = ouvrir;
+        if (ouvrir && typeof synchroniserAudioPause === "function") {
+          synchroniserAudioPause();
+        }
         pauseMenu.style.display = pauseMenuOpen ? "flex" : "none";
         gamePaused = pauseMenuOpen || shopOpen || combinedSkillShopOpen;
       }
@@ -12946,6 +13267,7 @@
 
       // Une seule source de verite : toute fenetre ouverte met en pause
       function majPause() {
+        // Applique aussi l'arret des animations, gere plus bas
         const ouvert = (id) => {
           const el = document.getElementById(id);
           return !!el && el.style.display !== "none" && el.style.display !== "";
@@ -12960,6 +13282,8 @@
           ouvert("filtreLootEcran") ||
           ouvert("equipmentScreen") ||
           ouvert("turretUpgradeMenu");
+
+        document.body.classList.toggle("jeu-en-pause", gamePaused);
       }
 
       function getItemPrice(item) {
