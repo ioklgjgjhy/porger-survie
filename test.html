@@ -12943,16 +12943,6 @@
         lien.style.color = "rgba(255, 255, 255, 0.5)";
       }
       window.addEventListener("DOMContentLoaded", initContactButton);
-      // Touche T : informations sur le robot
-      document.addEventListener("keydown", (e) => {
-        if (e.key !== "t" && e.key !== "T") return;
-        const champ = document.activeElement;
-        if (champ && /input|textarea/i.test(champ.tagName)) return;
-        if (!gameActive || !robotDisponible()) return;
-        if (document.getElementById("infoRobot")) return;
-        ouvrirInfoRobot();
-      });
-
       // Clic sur le terrain : envoie le robot si le mode est actif
       window.addEventListener("DOMContentLoaded", () => {
         const zone = document.getElementById("gameCanvas");
@@ -13277,7 +13267,6 @@
           combinedSkillShopOpen ||
           pauseMenuOpen ||
           ouvert("panneauDev") ||
-          ouvert("infoRobot") ||
           ouvert("ecranSupport") ||
           ouvert("filtreLootEcran") ||
           ouvert("equipmentScreen") ||
@@ -13458,6 +13447,28 @@
 
           passiveSkillGrid.appendChild(itemDiv);
         });
+
+        // Robot allie : achat unique, pas de niveau (jamais dans upgradeLevels)
+        {
+          const dispo = robotDisponible();
+          const possede = robot !== null;
+          const peutPayer = playerMoney >= ROBOT_PRIX;
+          const div = document.createElement("div");
+          div.className =
+            "shop-item" +
+            (!dispo ? " locked" : possede ? " maxed" : !peutPayer ? " disabled" : "");
+          div.innerHTML = `
+            <div class="item-icon">\ud83e\udd16</div>
+            <div class="item-name">Robot allié</div>
+            <div class="item-desc">Va chercher les soigneurs et tireurs en retrait. Clique sur le terrain pour le diriger.</div>
+            <div class="item-price">\ud83d\udcb0 ${ROBOT_PRIX} $</div>
+            ${possede ? `<div class="item-maxed">DÉPLOYÉ</div>` : ""}
+            ${!dispo ? `<div class="item-locked">\ud83d\udd12 Vague ${ROBOT_VAGUE_DEBLOCAGE} requise</div>` : ""}
+            ${dispo && !possede && !peutPayer ? `<div class="item-locked">Il te manque ${ROBOT_PRIX - Math.floor(playerMoney)} $</div>` : ""}
+          `;
+          if (dispo && !possede && peutPayer) div.onclick = () => acheterRobot();
+          passiveSkillGrid.appendChild(div);
+        }
 
         // Render compétences actives (orange)
         ACTIVE_SKILLS.forEach((skill) => {
@@ -14484,7 +14495,10 @@
           "border:1px solid #3498db;border-radius:12px;padding:13px 15px;" +
           "z-index:9500;box-shadow:0 6px 22px rgba(0,0,0,.6);" +
           "animation:glisserGauche .35s ease-out;cursor:pointer";
-        a.onclick = () => ouvrirInfoRobot();
+        a.onclick = () => {
+          a.remove();
+          if (!combinedSkillShopOpen) toggleCombinedSkillShop();
+        };
         a.innerHTML =
           "<div style='display:flex;align-items:center;gap:9px;margin-bottom:6px'>" +
           "<span style='font-size:21px'>\ud83e\udd16</span>" +
@@ -14493,8 +14507,8 @@
           "<div style='color:#fff;font-size:14px;font-weight:bold'>" +
           "Robot allié</div></div></div>" +
           "<div style='color:#9ab;font-size:11.5px;line-height:1.45'>" +
-          "Touche <b style='color:#3498db'>T</b> ou clique ici pour en " +
-          "savoir plus.</div>";
+          "Disponible dans les compétences (<b style='color:#3498db'>R</b>), " +
+          "tout en bas.</div>";
         document.body.appendChild(a);
         setTimeout(() => {
           const el = document.getElementById("annonceRobot");
@@ -14507,76 +14521,6 @@
         }, 8000);
       }
 
-      function ouvrirInfoRobot() {
-        const a = document.getElementById("annonceRobot");
-        if (a) a.remove();
-        if (document.getElementById("infoRobot")) return;
-
-        const f = document.createElement("div");
-        f.id = "infoRobot";
-        f.style.cssText =
-          "position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:9600;" +
-          "display:flex;align-items:center;justify-content:center;padding:18px";
-        f.onclick = (e) => {
-          if (e.target === f) {
-            f.remove();
-            majPause();
-          }
-        };
-        const possede = robot !== null;
-        const manque = Math.max(0, ROBOT_PRIX - Math.floor(playerMoney));
-        f.innerHTML =
-          "<div style='background:#0f1c2e;border:2px solid #3498db;" +
-          "border-radius:16px;padding:22px;max-width:420px;width:100%'>" +
-          "<div style='display:flex;align-items:center;gap:11px;margin-bottom:14px'>" +
-          "<span style='font-size:26px'>\ud83e\udd16</span>" +
-          "<h2 style='color:#5dade2;font-size:19px;margin:0;flex:1'>Robot allié</h2>" +
-          "<button onclick='document.getElementById(\"infoRobot\").remove();majPause()' " +
-          "style='background:none;border:none;color:#888;font-size:24px;" +
-          "cursor:pointer;line-height:1'>&times;</button></div>" +
-
-          "<p style='color:#ccd;font-size:13.5px;line-height:1.6;margin:0 0 14px'>" +
-          "Certains zombies restent en retrait : les <b style='color:#2ecc71'>" +
-          "soigneurs</b> qui rendent des points de vie à la horde, et les " +
-          "<b style='color:#9b59b6'>tireurs</b> qui t'attaquent de loin. " +
-          "Ton tir automatique ne les atteint pas toujours.</p>" +
-
-          "<p style='color:#ccd;font-size:13.5px;line-height:1.6;margin:0 0 14px'>" +
-          "Le robot va les chercher. <b>Clique n'importe où sur le terrain</b> " +
-          "et il s'y rend, puis attaque ce qui s'y trouve.</p>" +
-
-          "<div style='background:rgba(52,152,219,.1);border-left:3px solid #3498db;" +
-          "border-radius:7px;padding:10px 13px;margin-bottom:16px'>" +
-          "<div style='color:#5dade2;font-size:12px;font-weight:bold;" +
-          "margin-bottom:4px'>Autodéfense</div>" +
-          "<div style='color:#99a;font-size:12px;line-height:1.5'>" +
-          "Si un zombie s'approche trop près, il le traite en priorité " +
-          "avant de reprendre sa mission.</div></div>" +
-
-          (possede
-            ? "<div style='text-align:center;color:#2ecc71;font-size:14px;" +
-              "font-weight:bold'>\u2713 Robot déployé</div>"
-            : manque > 0
-            ? "<button disabled style='width:100%;padding:13px;background:#3a3f4a;" +
-              "border:1px solid #555;border-radius:10px;color:#9aa;font-weight:bold;" +
-              "font-size:15px;cursor:not-allowed'>" +
-              "Déployer \u00b7 " + ROBOT_PRIX + " $</button>" +
-              "<p style='color:#e67e22;font-size:12.5px;text-align:center;" +
-              "font-weight:bold;margin:8px 0 0'>Pas assez d'argent \u00b7 il te manque " +
-              manque + " $</p>" +
-              "<p style='color:#777;font-size:11px;text-align:center;margin:4px 0 0'>" +
-              "Tu as " + Math.round(playerMoney) + " $</p>"
-            : "<button onclick='acheterRobot()' style='width:100%;padding:13px;" +
-              "background:#3498db;border:none;border-radius:10px;color:#fff;" +
-              "font-weight:bold;font-size:15px;cursor:pointer'>" +
-              "Déployer \u00b7 " + ROBOT_PRIX + " $</button>" +
-              "<p style='color:#777;font-size:11px;text-align:center;margin:8px 0 0'>" +
-              "Tu as " + Math.round(playerMoney) + " $</p>") +
-          "</div>";
-        document.body.appendChild(f);
-        majPause();
-      }
-
       function acheterRobot() {
         if (robot) return;
         if (playerMoney < ROBOT_PRIX) {
@@ -14587,9 +14531,9 @@
         updateMoneyDisplay();
         noterAchat("Robot allié", ROBOT_PRIX);
         creerRobot();
-        const f = document.getElementById("infoRobot");
-        if (f) f.remove();
-        majPause();
+        const a = document.getElementById("annonceRobot");
+        if (a) a.remove();
+        if (combinedSkillShopOpen) renderCombinedSkillShop();
         messageRobot("\ud83e\udd16 Robot déployé — clique sur « Diriger »");
       }
 
