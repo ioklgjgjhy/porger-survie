@@ -13402,6 +13402,28 @@
         passiveSkillGrid.innerHTML = "";
         activeSkillGrid.innerHTML = "";
 
+        // Robot allie, place juste apres la tourelle : achat unique, pas de niveau
+        const tuileRobot = () => {
+          const dispo = robotDisponible();
+          const possede = robot !== null;
+          const peutPayer = playerMoney >= ROBOT_PRIX;
+          const div = document.createElement("div");
+          div.className =
+            "shop-item" +
+            (!dispo ? " locked" : possede ? " maxed" : !peutPayer ? " disabled" : "");
+          div.innerHTML = `
+            <div class="item-icon">\ud83e\udd16</div>
+            <div class="item-name">Robot allié</div>
+            <div class="item-desc">Va chercher les soigneurs et tireurs en retrait. Clique sur le terrain pour le diriger.</div>
+            <div class="item-price">\ud83d\udcb0 ${ROBOT_PRIX} $</div>
+            ${possede ? `<div class="item-maxed">DÉPLOYÉ</div>` : ""}
+            ${!dispo ? `<div class="item-locked">\ud83d\udd12 Vague ${ROBOT_VAGUE_DEBLOCAGE} requise</div>` : ""}
+            ${dispo && !possede && !peutPayer ? `<div class="item-locked">Il te manque ${ROBOT_PRIX - Math.floor(playerMoney)} $</div>` : ""}
+          `;
+          if (dispo && !possede && peutPayer) div.onclick = () => acheterRobot();
+          passiveSkillGrid.appendChild(div);
+        };
+
         // Render compétences passives (violet)
         SKILL_ITEMS.forEach((item) => {
           const price = getItemPrice(item);
@@ -13446,29 +13468,8 @@
           }
 
           passiveSkillGrid.appendChild(itemDiv);
+          if (item.id === "turret") tuileRobot();
         });
-
-        // Robot allie : achat unique, pas de niveau (jamais dans upgradeLevels)
-        {
-          const dispo = robotDisponible();
-          const possede = robot !== null;
-          const peutPayer = playerMoney >= ROBOT_PRIX;
-          const div = document.createElement("div");
-          div.className =
-            "shop-item" +
-            (!dispo ? " locked" : possede ? " maxed" : !peutPayer ? " disabled" : "");
-          div.innerHTML = `
-            <div class="item-icon">\ud83e\udd16</div>
-            <div class="item-name">Robot allié</div>
-            <div class="item-desc">Va chercher les soigneurs et tireurs en retrait. Clique sur le terrain pour le diriger.</div>
-            <div class="item-price">\ud83d\udcb0 ${ROBOT_PRIX} $</div>
-            ${possede ? `<div class="item-maxed">DÉPLOYÉ</div>` : ""}
-            ${!dispo ? `<div class="item-locked">\ud83d\udd12 Vague ${ROBOT_VAGUE_DEBLOCAGE} requise</div>` : ""}
-            ${dispo && !possede && !peutPayer ? `<div class="item-locked">Il te manque ${ROBOT_PRIX - Math.floor(playerMoney)} $</div>` : ""}
-          `;
-          if (dispo && !possede && peutPayer) div.onclick = () => acheterRobot();
-          passiveSkillGrid.appendChild(div);
-        }
 
         // Render compétences actives (orange)
         ACTIVE_SKILLS.forEach((skill) => {
